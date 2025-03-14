@@ -18,3 +18,12 @@ class Annotation:
 class NormalizedAnnotation (Annotation):
     curie: str
     biolink_type: str
+
+
+@dataclass
+class AnnotatedText:
+    """
+    A class for storing a text along with a set of annotations from a single source.
+    """
+    text: str
+    annotations: list[Annotation]

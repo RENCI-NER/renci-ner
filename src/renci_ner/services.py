@@ -1,9 +1,9 @@
-from src.renci_ner.AnnotationText import AnnotatedText
+from src.renci_ner.annotations import AnnotatedText
 
 
-class Service:
+class Annotator:
     """
-    An interface for communicating with an NER service.
+    An interface for annotating text using a service.
     """
 
     def annotate(self, text: str, props: dict) -> AnnotatedText:
