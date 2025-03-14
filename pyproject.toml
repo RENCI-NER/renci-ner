@@ -1,0 +1,14 @@
+[project]
+name = "renci-ner"
+version = "0.1.0"
+description = "A library for accessing RENCI NER services."
+readme = "README.md"
+authors = [
+    { name = "Gaurav Vaidya", email = "gaurav@renci.org" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
