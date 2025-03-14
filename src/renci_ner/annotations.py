@@ -12,6 +12,7 @@ class Annotation:
     id: str
     label: str
     type: str
+    props: dict
 
 
 @dataclass

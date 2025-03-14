@@ -7,7 +7,9 @@ authors = [
     { name = "Gaurav Vaidya", email = "gaurav@renci.org" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "requests>=2.32.3",
+]
 
 [build-system]
 requires = ["hatchling"]
