@@ -1,4 +1,4 @@
-from src.renci_ner.annotations import AnnotatedText
+from renci_ner.annotations import AnnotatedText
 
 
 class Annotator:

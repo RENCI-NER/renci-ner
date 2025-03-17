@@ -3,13 +3,13 @@
 # Source code: https://github.com/TranslatorSRI/NameResolution
 # Hosted at: https://name-resolution-sri.renci.org/docs
 #
-from src.renci_ner.annotations import AnnotatedText, Annotation
-from src.renci_ner.services.core import Annotator
+from renci_ner.annotations import AnnotatedText, Annotation
+from renci_ner.services.core import Annotator
 
 import requests
 
 # Configuration.
-RENCI_NAMERES_URL = "https://med-nemo.apps.renci.org"
+RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"
 
 
 class NameRes (Annotator):
