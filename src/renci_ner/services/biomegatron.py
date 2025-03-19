@@ -12,7 +12,7 @@ import requests
 RENCI_BIOMEGATRON_URL = "https://med-nemo.apps.renci.org"
 
 
-class BioMegatron (Annotator):
+class BioMegatron(Annotator):
     """
     Provides an Annotator interface to a BioMegatron service.
     """
@@ -35,10 +35,13 @@ class BioMegatron (Annotator):
         # Set up query.
         session = self.requests_session
 
-        response = session.post(self.annotate_url, json={
-            "text": text,
-            "model_name": "token_classification",
-        })
+        response = session.post(
+            self.annotate_url,
+            json={
+                "text": text,
+                "model_name": "token_classification",
+            },
+        )
 
         response.raise_for_status()
 
@@ -46,18 +49,20 @@ class BioMegatron (Annotator):
 
         annotations = []
         for denotation in result.get("denotations", []):
-            span = denotation.get('span', {})
-            start_index = span.get('begin', -1)
-            end_index = span.get('end', -1)
+            span = denotation.get("span", {})
+            start_index = span.get("begin", -1)
+            end_index = span.get("end", -1)
 
-            annotations.append(Annotation(
-                text = denotation.get('text', ''),
-                start = start_index,
-                end = end_index,
-                id = denotation.get('id', ''),
-                label = '',
-                type = denotation.get('obj', ''),
-                props = {}
-            ))
+            annotations.append(
+                Annotation(
+                    text=denotation.get("text", ""),
+                    start=start_index,
+                    end=end_index,
+                    id=denotation.get("id", ""),
+                    label="",
+                    type=denotation.get("obj", ""),
+                    props={},
+                )
+            )
 
         return AnnotatedText(text, annotations)

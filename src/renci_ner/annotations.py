@@ -6,6 +6,7 @@ class Annotation:
     """
     A class for storing a single annotation.
     """
+
     text: str
     start: int
     end: int
@@ -16,7 +17,7 @@ class Annotation:
 
 
 @dataclass
-class NormalizedAnnotation (Annotation):
+class NormalizedAnnotation(Annotation):
     curie: str
     biolink_type: str
 
@@ -26,5 +27,6 @@ class AnnotatedText:
     """
     A class for storing a text along with a set of annotations from a single source.
     """
+
     text: str
     annotations: list[Annotation]

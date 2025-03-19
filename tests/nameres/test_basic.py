@@ -1,10 +1,9 @@
 from renci_ner.services.nameres import NameRes
 
+
 def test_check():
     nameres = NameRes()
-    result = nameres.annotate("brain", {
-        'limit': 11
-    })
+    result = nameres.annotate("brain", {"limit": 11})
     assert result.text == "brain"
     annotations = result.annotations
     assert len(annotations) == 11
