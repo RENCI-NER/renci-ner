@@ -1,6 +1,6 @@
 # Run tests for a variety of Python versions.
 
-name: Test
+name: Check lint
 on:
   pull_request:
 
@@ -8,13 +8,6 @@ jobs:
   build:
     name: Continuous integration
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version:
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
 
     steps:
       - uses: actions/checkout@v4
@@ -28,5 +21,5 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      - name: Run tests
-        run: uv run pytest tests
+      - name: Check lint
+        run: ruff check
