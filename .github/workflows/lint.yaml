@@ -22,4 +22,4 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Check lint
-        run: ruff check
+        run: uv run ruff check
