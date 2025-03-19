@@ -1,6 +1,6 @@
 # Run tests for a variety of Python versions.
 
-name: Check lint
+name: Check code style
 on:
   pull_request:
 
