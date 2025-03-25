@@ -1,6 +1,6 @@
 #
 # A Named Entity Linker based on the Babel cliques using SAPBERT embeddings.
-# Source code: https://github.com/RENCI-NER/SAPBERT
+# Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
 from renci_ner.annotations import AnnotatedText, Annotation
