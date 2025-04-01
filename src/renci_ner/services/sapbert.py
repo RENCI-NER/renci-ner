@@ -3,7 +3,7 @@
 # Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
-from renci_ner.annotations import AnnotatedText, Annotation
+from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance
 from renci_ner.services.core import Annotator
 
 import requests
@@ -18,6 +18,14 @@ class SAPBERTAnnotator(Annotator):
     Provides an Annotator interface to a SAPBERT service.
     """
 
+    def provenance(self) -> AnnotationProvenance:
+        """ Return an AnnotationProvenance describing annotations produced by this service. """
+        return AnnotationProvenance(
+            name="BabelSAPBERT",
+            url=RENCI_SAPBERT_URL,
+            version=self.openapi_version
+        )
+
     def __init__(self, url=RENCI_SAPBERT_URL, requests_session=requests.Session()):
         """
         Set up a SAPBERT service.
@@ -28,6 +36,9 @@ class SAPBERTAnnotator(Annotator):
         self.url = url
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session
+
+        openapi_data = requests_session.get(self.url + "/openapi.json").json()
+        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get("version", "NA")
 
     def supported_properties(self):
         return {
@@ -69,6 +80,7 @@ class SAPBERTAnnotator(Annotator):
                 props={
                     "score": result.get("score", 0),
                 },
+                prov=[self.provenance()],
                 # Since we're using the whole text, let's just use that
                 # as the start/end.
                 start=0,

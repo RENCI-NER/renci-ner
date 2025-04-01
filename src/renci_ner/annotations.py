@@ -1,4 +1,12 @@
 from dataclasses import dataclass
+from typing import Self
+
+
+@dataclass
+class AnnotationProvenance:
+    name: str
+    url: str
+    version: str
 
 
 @dataclass
@@ -6,20 +14,21 @@ class Annotation:
     """
     A class for storing a single annotation.
     """
-
     text: str
-    start: int
-    end: int
     id: str
     label: str
     type: str
-    props: dict
+    start: int
+    end: int
+    prov: list[AnnotationProvenance] = list
+    prev: list[Self] = list
+    props: dict = dict
 
 
 @dataclass
 class NormalizedAnnotation(Annotation):
-    curie: str
-    biolink_type: str
+    curie: str = None
+    biolink_type: str = None
 
 
 @dataclass

@@ -3,7 +3,9 @@
 # Source code: https://github.com/RENCI-NER/nemo-serve
 # Hosted at: https://med-nemo.apps.renci.org/docs
 #
-from renci_ner.annotations import AnnotatedText, Annotation
+import datetime
+
+from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance
 from renci_ner.services.core import Annotator
 
 import requests
@@ -17,6 +19,14 @@ class BioMegatron(Annotator):
     Provides an Annotator interface to a BioMegatron service.
     """
 
+    def provenance(self) -> AnnotationProvenance:
+        """ Return an AnnotationProvenance describing annotations produced by this service. """
+        return AnnotationProvenance(
+            name="BioMegatron",
+            url=RENCI_BIOMEGATRON_URL,
+            version=self.openapi_version
+        )
+
     def __init__(self, url=RENCI_BIOMEGATRON_URL, requests_session=requests.Session()):
         """
         Set up a BioMegatron service.
@@ -27,6 +37,9 @@ class BioMegatron(Annotator):
         self.url = url
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session
+
+        openapi_data = requests_session.get(self.url + "/openapi.json").json()
+        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get("version", "NA")
 
     def supported_properties(self):
         return {}
@@ -62,6 +75,7 @@ class BioMegatron(Annotator):
                     label="",
                     type=denotation.get("obj", ""),
                     props={},
+                    prov=[self.provenance()],
                 )
             )
 

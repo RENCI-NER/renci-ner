@@ -3,7 +3,7 @@
 # Source code: https://github.com/TranslatorSRI/NameResolution
 # Hosted at: https://name-resolution-sri.renci.org/docs
 #
-from renci_ner.annotations import AnnotatedText, Annotation
+from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance
 from renci_ner.services.core import Annotator
 
 import requests
@@ -17,6 +17,14 @@ class NameRes(Annotator):
     A Named Entity Linker based on the Babel cliques.
     """
 
+    def provenance(self) -> AnnotationProvenance:
+        """ Return an AnnotationProvenance describing annotations produced by this service. """
+        return AnnotationProvenance(
+            name="NameRes",
+            url=RENCI_NAMERES_URL,
+            version=self.openapi_version
+        )
+
     def __init__(self, url=RENCI_NAMERES_URL, requests_session=requests.Session()):
         """
         Set up a BioMegatron service.
@@ -28,9 +36,11 @@ class NameRes(Annotator):
         self.lookup_url = url + "/lookup"
         self.requests_session = requests_session
 
-        # Some configurable parameters.
+        openapi_data = requests_session.get(self.url + "/openapi.json").json()
+        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get("version", "NA")
 
     def supported_properties(self):
+        """ Some configurable parameters. """
         return {
             "autocomplete": "(true/false, default: false) Whether to search for incomplete words (e.g. 'bra' for brain).",
             "limit": "(int, default: 10) The number of results to return.",
@@ -77,6 +87,7 @@ class NameRes(Annotator):
                         "types": result.get("types", []),
                         "taxa": result.get("taxa", []),
                     },
+                    prov=[self.provenance()],
                     # Since we're using the whole text, let's just use that
                     # as the start/end.
                     start=0,
