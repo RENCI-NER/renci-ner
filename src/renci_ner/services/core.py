@@ -9,6 +9,7 @@ class Annotator:
     An interface for annotating text using a service.
     """
 
+    @property
     def provenance(self) -> AnnotationProvenance:
         return AnnotationProvenance(
             name="Annotator",
