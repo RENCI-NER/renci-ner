@@ -80,7 +80,7 @@ class SAPBERTAnnotator(Annotator):
                 props={
                     "score": result.get("score", 0),
                 },
-                prov=[self.provenance()],
+                provenances=[self.provenance()],
                 # Since we're using the whole text, let's just use that
                 # as the start/end.
                 start=0,

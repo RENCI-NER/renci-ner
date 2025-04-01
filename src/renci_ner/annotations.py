@@ -20,8 +20,8 @@ class Annotation:
     type: str
     start: int
     end: int
-    prov: list[AnnotationProvenance] = list
-    prev: list[Self] = list
+    provenances: list[AnnotationProvenance] = list
+    based_on: list[Self] = list
     props: dict = dict
 
 
