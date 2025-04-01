@@ -35,7 +35,7 @@ class SAPBERTAnnotator(Annotator):
             "score": "The (minimum) score for this result returned by SAPBERT (higher is better)."
         }
 
-    def annotate(self, text, props) -> Annotation | AnnotatedText:
+    def annotate(self, text, props={}) -> Annotation | AnnotatedText:
         # Set up query.
         session = self.requests_session
 

@@ -37,7 +37,7 @@ class NameRes(Annotator):
             # TODO: add remaining.
         }
 
-    def annotate(self, text, props) -> AnnotatedText:
+    def annotate(self, text, props={}) -> AnnotatedText:
         # Set up query.
         session = self.requests_session
 
