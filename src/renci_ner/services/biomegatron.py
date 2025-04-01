@@ -3,8 +3,8 @@
 # Source code: https://github.com/RENCI-NER/nemo-serve
 # Hosted at: https://med-nemo.apps.renci.org/docs
 #
-from src.renci_ner.annotations import AnnotatedText, Annotation
-from src.renci_ner.services.core import Annotator
+from renci_ner.annotations import AnnotatedText, Annotation
+from renci_ner.services.core import Annotator
 
 import requests
 
@@ -25,13 +25,13 @@ class BioMegatron(Annotator):
         :param requests_session: A Requests session object to use instead of the default one.
         """
         self.url = url
-        self.annotate_url = url + "/annotate"
+        self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session
 
     def supported_properties(self):
         return {}
 
-    def annotate(self, text, props) -> AnnotatedText:
+    def annotate(self, text, props={}) -> AnnotatedText:
         # Set up query.
         session = self.requests_session
 
