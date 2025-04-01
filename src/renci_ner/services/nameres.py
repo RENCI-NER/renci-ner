@@ -18,11 +18,9 @@ class NameRes(Annotator):
     """
 
     def provenance(self) -> AnnotationProvenance:
-        """ Return an AnnotationProvenance describing annotations produced by this service. """
+        """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="NameRes",
-            url=RENCI_NAMERES_URL,
-            version=self.openapi_version
+            name="NameRes", url=RENCI_NAMERES_URL, version=self.openapi_version
         )
 
     def __init__(self, url=RENCI_NAMERES_URL, requests_session=requests.Session()):
@@ -37,10 +35,12 @@ class NameRes(Annotator):
         self.requests_session = requests_session
 
         openapi_data = requests_session.get(self.url + "/openapi.json").json()
-        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get("version", "NA")
+        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
+            "version", "NA"
+        )
 
     def supported_properties(self):
-        """ Some configurable parameters. """
+        """Some configurable parameters."""
         return {
             "autocomplete": "(true/false, default: false) Whether to search for incomplete words (e.g. 'bra' for brain).",
             "limit": "(int, default: 10) The number of results to return.",

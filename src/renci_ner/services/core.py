@@ -14,7 +14,7 @@ class Annotator:
             name="Annotator",
             url="",
             version="0.0.1",
-            at=datetime.datetime.now(datetime.UTC).isoformat()
+            at=datetime.datetime.now(datetime.UTC).isoformat(),
         )
 
     def annotate(self, text: str, props: dict = {}) -> AnnotatedText:

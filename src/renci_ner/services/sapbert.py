@@ -19,11 +19,9 @@ class SAPBERTAnnotator(Annotator):
     """
 
     def provenance(self) -> AnnotationProvenance:
-        """ Return an AnnotationProvenance describing annotations produced by this service. """
+        """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="BabelSAPBERT",
-            url=RENCI_SAPBERT_URL,
-            version=self.openapi_version
+            name="BabelSAPBERT", url=RENCI_SAPBERT_URL, version=self.openapi_version
         )
 
     def __init__(self, url=RENCI_SAPBERT_URL, requests_session=requests.Session()):
@@ -38,12 +36,14 @@ class SAPBERTAnnotator(Annotator):
         self.requests_session = requests_session
 
         openapi_data = requests_session.get(self.url + "/openapi.json").json()
-        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get("version", "NA")
+        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
+            "version", "NA"
+        )
 
     def supported_properties(self):
         return {
             "limit": "The maximum number of results to return.",
-            "score": "The (minimum) score for this result returned by SAPBERT (higher is better)."
+            "score": "The (minimum) score for this result returned by SAPBERT (higher is better).",
         }
 
     def annotate(self, text, props={}) -> list[AnnotatedText]:
@@ -72,19 +72,21 @@ class SAPBERTAnnotator(Annotator):
             if result.get("score", 0) < min_score:
                 continue
 
-            annotations.append(Annotation(
-                text=text,
-                id=result.get("curie", ""),
-                label=result.get("name", ""),
-                type=result.get("category", ""),
-                props={
-                    "score": result.get("score", 0),
-                },
-                provenances=[self.provenance()],
-                # Since we're using the whole text, let's just use that
-                # as the start/end.
-                start=0,
-                end=len(text),
-            ))
+            annotations.append(
+                Annotation(
+                    text=text,
+                    id=result.get("curie", ""),
+                    label=result.get("name", ""),
+                    type=result.get("category", ""),
+                    props={
+                        "score": result.get("score", 0),
+                    },
+                    provenances=[self.provenance()],
+                    # Since we're using the whole text, let's just use that
+                    # as the start/end.
+                    start=0,
+                    end=len(text),
+                )
+            )
 
         return AnnotatedText(text, annotations)

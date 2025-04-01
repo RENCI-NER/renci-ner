@@ -20,11 +20,9 @@ class BioMegatron(Annotator):
     """
 
     def provenance(self) -> AnnotationProvenance:
-        """ Return an AnnotationProvenance describing annotations produced by this service. """
+        """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="BioMegatron",
-            url=RENCI_BIOMEGATRON_URL,
-            version=self.openapi_version
+            name="BioMegatron", url=RENCI_BIOMEGATRON_URL, version=self.openapi_version
         )
 
     def __init__(self, url=RENCI_BIOMEGATRON_URL, requests_session=requests.Session()):
@@ -39,7 +37,9 @@ class BioMegatron(Annotator):
         self.requests_session = requests_session
 
         openapi_data = requests_session.get(self.url + "/openapi.json").json()
-        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get("version", "NA")
+        self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
+            "version", "NA"
+        )
 
     def supported_properties(self):
         return {}

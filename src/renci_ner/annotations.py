@@ -14,6 +14,7 @@ class Annotation:
     """
     A class for storing a single annotation.
     """
+
     text: str
     id: str
     label: str

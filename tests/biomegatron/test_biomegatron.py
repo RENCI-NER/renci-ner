@@ -16,9 +16,7 @@ def test_check():
     assert brain.type == "biolink:AnatomicalEntity"
     assert len(brain.provenances) == 1
     assert brain.provenances[0] == AnnotationProvenance(
-        name="BioMegatron",
-        version="0.1.0",
-        url="https://med-nemo.apps.renci.org"
+        name="BioMegatron", version="0.1.0", url="https://med-nemo.apps.renci.org"
     )
 
     nervous_system = annotations[1]
@@ -26,7 +24,5 @@ def test_check():
     assert nervous_system.type == "biolink:AnatomicalEntity"
     assert len(nervous_system.provenances) == 1
     assert nervous_system.provenances[0] == AnnotationProvenance(
-        name="BioMegatron",
-        version="0.1.0",
-        url="https://med-nemo.apps.renci.org"
+        name="BioMegatron", version="0.1.0", url="https://med-nemo.apps.renci.org"
     )

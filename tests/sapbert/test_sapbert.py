@@ -14,7 +14,5 @@ def test_check():
     assert top_annot.type == "biolink:GrossAnatomicalStructure"
     assert len(top_annot.provenances) == 1
     assert top_annot.provenances[0] == AnnotationProvenance(
-        name="BabelSAPBERT",
-        version="0.1.0",
-        url="https://sap-qdrant.apps.renci.org"
+        name="BabelSAPBERT", version="0.1.0", url="https://sap-qdrant.apps.renci.org"
     )
