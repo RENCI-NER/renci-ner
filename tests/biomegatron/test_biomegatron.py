@@ -1,3 +1,4 @@
+from renci_ner.annotations import AnnotationProvenance
 from renci_ner.services.biomegatron import BioMegatron
 
 
@@ -13,7 +14,19 @@ def test_check():
     brain = annotations[0]
     assert brain.label == ""
     assert brain.type == "biolink:AnatomicalEntity"
+    assert len(brain.provenances) == 1
+    assert brain.provenances[0] == AnnotationProvenance(
+        name="BioMegatron",
+        version="0.1.0",
+        url="https://med-nemo.apps.renci.org"
+    )
 
     nervous_system = annotations[1]
-    assert brain.label == ""
-    assert brain.type == "biolink:AnatomicalEntity"
+    assert nervous_system.label == ""
+    assert nervous_system.type == "biolink:AnatomicalEntity"
+    assert len(nervous_system.provenances) == 1
+    assert nervous_system.provenances[0] == AnnotationProvenance(
+        name="BioMegatron",
+        version="0.1.0",
+        url="https://med-nemo.apps.renci.org"
+    )

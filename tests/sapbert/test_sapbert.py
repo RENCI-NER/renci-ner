@@ -1,9 +1,10 @@
+from renci_ner.annotations import AnnotationProvenance
 from renci_ner.services.sapbert import SAPBERTAnnotator
 
 
 def test_check():
-    nameres = SAPBERTAnnotator()
-    result = nameres.annotate("brain", {"limit": 11})
+    sapbert = SAPBERTAnnotator()
+    result = sapbert.annotate("brain", {"limit": 11})
     assert result.text == "brain"
     annotations = result.annotations
     assert len(annotations) == 11
@@ -11,3 +12,9 @@ def test_check():
     assert top_annot.label == "brain"
     assert top_annot.id == "UBERON:0000955"
     assert top_annot.type == "biolink:GrossAnatomicalStructure"
+    assert len(top_annot.provenances) == 1
+    assert top_annot.provenances[0] == AnnotationProvenance(
+        name="BabelSAPBERT",
+        version="0.1.0",
+        url="https://sap-qdrant.apps.renci.org"
+    )
