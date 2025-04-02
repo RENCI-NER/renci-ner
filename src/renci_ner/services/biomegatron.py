@@ -19,6 +19,7 @@ class BioMegatron(Annotator):
     Provides an Annotator interface to a BioMegatron service.
     """
 
+    @property
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
@@ -75,7 +76,7 @@ class BioMegatron(Annotator):
                     label="",
                     type=denotation.get("obj", ""),
                     props={},
-                    provenances=[self.provenance()],
+                    provenances=[self.provenance],
                 )
             )
 

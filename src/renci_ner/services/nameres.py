@@ -17,6 +17,7 @@ class NameRes(Annotator):
     A Named Entity Linker based on the Babel cliques.
     """
 
+    @property
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
@@ -87,7 +88,7 @@ class NameRes(Annotator):
                         "types": result.get("types", []),
                         "taxa": result.get("taxa", []),
                     },
-                    provenances=[self.provenance()],
+                    provenances=[self.provenance],
                     # Since we're using the whole text, let's just use that
                     # as the start/end.
                     start=0,

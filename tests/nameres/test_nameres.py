@@ -1,6 +1,5 @@
 import re
 
-from renci_ner.annotations import AnnotationProvenance
 from renci_ner.services.nameres import NameRes
 
 

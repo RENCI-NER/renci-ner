@@ -18,6 +18,7 @@ class SAPBERTAnnotator(Annotator):
     Provides an Annotator interface to a SAPBERT service.
     """
 
+    @property
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
@@ -81,7 +82,7 @@ class SAPBERTAnnotator(Annotator):
                     props={
                         "score": result.get("score", 0),
                     },
-                    provenances=[self.provenance()],
+                    provenances=[self.provenance],
                     # Since we're using the whole text, let's just use that
                     # as the start/end.
                     start=0,
