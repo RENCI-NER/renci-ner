@@ -32,6 +32,16 @@ class NormalizedAnnotation(Annotation):
     curie: str = None
     biolink_type: str = None
 
+    def __setattr__(self, name, value):
+        """ Validate biolink_type. """
+        if name == 'biolink_type' and value is not None and not value.lower().startswith("biolink:"):
+            raise ValueError(f"Invalid biolink_type: must start with 'biolink:' but got '{value}'.")
+
+        # TODO: it'd probably be a good idea to check formatting for CURIEs as well, but that's less well defined.
+
+        # No problems.
+        super().__setattr__(name, value)
+
 
 class AnnotatedText:
     """

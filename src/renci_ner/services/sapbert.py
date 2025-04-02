@@ -3,7 +3,7 @@
 # Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
-from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance
+from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance, NormalizedAnnotation
 from renci_ner.services.core import Annotator
 
 import requests
@@ -74,8 +74,13 @@ class SAPBERTAnnotator(Annotator):
                 continue
 
             annotations.append(
-                Annotation(
+                # Since SAPBERT is normalized to Babel, we can treat it as a NormalizedAnnotation.
+                NormalizedAnnotation(
                     text=text,
+
+                    curie=result.get("curie", ""),
+                    biolink_type=result.get("category", ""),
+
                     id=result.get("curie", ""),
                     label=result.get("name", ""),
                     type=result.get("category", ""),
