@@ -150,6 +150,11 @@ def renci_ner(
                     annotation_ids = set()
 
                     annotated_text = ner_method(ner_text)
+
+                    if len(annotated_text.annotations) == 0:
+                        writer.writerow(row)
+                        continue
+
                     first_row = True
                     for annotation in annotated_text.annotations:
                         if first_row:
