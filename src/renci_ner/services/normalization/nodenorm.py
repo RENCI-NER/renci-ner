@@ -3,6 +3,8 @@
 # Source code: https://github.com/TranslatorSRI/NodeNormalization
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
+import logging
+
 from renci_ner.annotations import (
     AnnotatedText,
     Annotation,
@@ -17,7 +19,7 @@ import requests
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
 
 
-class NameRes:
+class NodeNorm:
     """
     The Translator Node Normalizer.
     """
@@ -68,7 +70,10 @@ class NameRes:
                 "description": props.get("description", "false"),
             },
         )
-        response.raise_for_status()
+        if response.status_code != 200:
+            # raise Exception(f"NodeNorm returned status code {response.status_code}")
+            logging.error(f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {ids}, skipping.")
+            return annotated_text
 
         results = response.json()
 
