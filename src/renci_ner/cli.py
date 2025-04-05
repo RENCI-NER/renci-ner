@@ -1,9 +1,11 @@
 import csv
-import json
 
-from renci_ner.services.biomegatron import BioMegatron
-from renci_ner.services.nameres import NameRes
-from renci_ner.services.sapbert import SAPBERTAnnotator
+import requests
+
+from renci_ner.services.ner.biomegatron import BioMegatron
+from renci_ner.services.linkers.nameres import NameRes
+from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
+from renci_ner.services.normalization.nodenorm import NodeNorm
 
 import click
 import logging
@@ -39,7 +41,8 @@ def renci_ner(input_files, column, method, output, ner_limit, output_format, dup
     # Set up the pipeline.
     if method == 'biomegatron-sapbert':
         def ner_method(text):
-            return BioMegatron().annotate(text).annotate_annotations_with(SAPBERTAnnotator(), { "limit": ner_limit})
+            sapbert_annotations = BioMegatron().annotate(text).annotate_annotations_with(SAPBERTAnnotator(), { "limit": ner_limit})
+            return NodeNorm().transform(sapbert_annotations)
     elif method == 'biomegatron-nameres':
         def ner_method(text):
             return BioMegatron().annotate(text).annotate_annotations_with(NameRes(), { "limit": ner_limit})
@@ -68,9 +71,9 @@ def renci_ner(input_files, column, method, output, ner_limit, output_format, dup
             with open(output_filename, 'w') as outputf:
                 output_fields = list(reader.fieldnames) + [
                     'ner_text',
-                    'ner_label'
-                    'ner_id',
-                    'ner_type',
+                    'ner_label',
+                    'ner_curie',
+                    'ner_biolink_type',
                 ]
                 writer = csv.DictWriter(outputf, dialect='excel', fieldnames=output_fields) if output_format == 'csv' else csv.writer(outputf, dialect='excel_tab', fieldnames=output_fields)
                 writer.writeheader()
@@ -82,23 +85,25 @@ def renci_ner(input_files, column, method, output, ner_limit, output_format, dup
                     annotation_ids = set()
 
                     annotated_text = ner_method(ner_text)
+                    first_row = True
                     for annotation in annotated_text.annotations:
-                        if duplicate_data:
+                        if first_row:
                             output_row = row.copy()
-                        else:
+                            first_row = False
+                        elif not duplicate_data:
                             output_row = dict(map(lambda x: (x, ""), row.keys()))
 
-                        if (not allow_duplicate_ids) and (annotation.id in annotation_ids):
+                        if (not allow_duplicate_ids) and (annotation.curie in annotation_ids):
                             continue
-                        annotation_ids.add(annotation.id)
+                        annotation_ids.add(annotation.curie)
 
                         output_row['ner_text'] = annotation.text
                         output_row['ner_label'] = annotation.label
-                        output_row['ner_id'] = annotation.id
-                        output_row['ner_type'] = annotation.type
-                        writer.writerow(row)
+                        output_row['ner_curie'] = annotation.curie
+                        output_row['ner_biolink_type'] = annotation.biolink_type
+                        writer.writerow(output_row)
 
-                        logging.info(f" - Annotation: '{annotation.text}' annotated as {annotation.id} '{annotation.label}' (type {annotation.type})")
+                        logging.info(f" - Annotation: '{annotation.text}' annotated as {annotation.curie} '{annotation.label}' (type {annotation.biolink_type})")
 
                     logging.info("")
 
