@@ -16,7 +16,7 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props: dict = {}) -> 'AnnotatedText':
+    def annotate(self, text: str, props: dict = {}) -> "AnnotatedText":
         """
         Annotate a text with a set of service-specific properties.
         """
