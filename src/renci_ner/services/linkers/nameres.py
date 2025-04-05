@@ -3,7 +3,12 @@
 # Source code: https://github.com/TranslatorSRI/NameResolution
 # Hosted at: https://name-resolution-sri.renci.org/docs
 #
-from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance, NormalizedAnnotation
+from renci_ner.annotations import (
+    AnnotatedText,
+    Annotation,
+    AnnotationProvenance,
+    NormalizedAnnotation,
+)
 from renci_ner.services.core import Annotator
 
 import requests
@@ -76,10 +81,8 @@ class NameRes(Annotator):
                 # Since NameRes is normalized to Babel, we can treat it as a NormalizedAnnotation.
                 NormalizedAnnotation(
                     text=text,
-
                     curie=result.get("curie", ""),
                     biolink_type=result.get("types", ["biolink:NamedThing"])[0],
-
                     id=result.get("curie", ""),
                     label=result.get("label", ""),
                     type=result.get("types", ["biolink:NamedThing"])[0],

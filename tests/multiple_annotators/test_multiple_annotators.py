@@ -1,6 +1,6 @@
-from renci_ner.services.biomegatron import BioMegatron
-from renci_ner.services.nameres import NameRes
-from renci_ner.services.sapbert import SAPBERTAnnotator
+from renci_ner.services.ner.biomegatron import BioMegatron
+from renci_ner.services.linkers.nameres import NameRes
+from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
 
 
 def test_multiple_annotators():

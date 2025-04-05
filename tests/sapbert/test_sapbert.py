@@ -1,5 +1,5 @@
 from renci_ner.annotations import AnnotationProvenance
-from renci_ner.services.sapbert import SAPBERTAnnotator
+from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
 
 
 def test_check():

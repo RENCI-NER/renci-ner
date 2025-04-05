@@ -1,5 +1,5 @@
 from renci_ner.annotations import AnnotationProvenance
-from renci_ner.services.biomegatron import BioMegatron
+from renci_ner.services.ner.biomegatron import BioMegatron
 
 
 def test_check():
