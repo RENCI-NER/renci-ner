@@ -48,6 +48,53 @@ class NormalizedAnnotation(Annotation):
         # No problems.
         super().__setattr__(name, value)
 
+    @classmethod
+    def from_annotation(cls, annotation: Annotation, curie=None, biolink_type=None, label=None) -> Self:
+        """
+        Creates an instance of NormalizedAnnotation from the provided Annotation object.
+
+        This method serves as a factory method to instantiate a NormalizedAnnotation
+        object using the given Annotation instance. Additional optional properties,
+        such as curie and biolink_type, may also be provided to customize the
+        generated object. The method utilizes the attributes from the Annotation
+        instance to populate the corresponding fields in the NormalizedAnnotation.
+
+        :param annotation: The Annotation instance used as the basis for constructing
+            the NormalizedAnnotation object.
+        :type annotation: Annotation
+        :param curie: Optional CURIE string for additional annotation details. If not
+            provided, it defaults to None.
+        :type curie: str, optional
+        :param biolink_type: Optional biolink type string to specify the type of the
+            annotation. If not provided, it defaults to None.
+        :type biolink_type: str, optional
+        :param label: Optional label string to specify the label of the annotation. Will overwrite the
+            annotation label if one is provided.
+        :type label: str, optional
+        :return: A new instance of NormalizedAnnotation initialized with the provided
+            annotation and optional parameters.
+        :rtype: Self
+        """
+
+        if label is None:
+            annotation_label = annotation.label
+        else:
+            annotation_label = label
+
+        return NormalizedAnnotation(
+            text=annotation.text,
+            id=annotation.id,
+            label=annotation_label,
+            type=annotation.type,
+            start=annotation.start,
+            end=annotation.end,
+            provenances=annotation.provenances,
+            based_on=annotation.based_on,
+            props=annotation.props,
+            curie=curie,
+            biolink_type=biolink_type,
+        )
+
 
 class AnnotatedText:
     """
