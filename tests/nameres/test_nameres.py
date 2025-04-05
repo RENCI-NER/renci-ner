@@ -1,6 +1,6 @@
 import re
 
-from renci_ner.services.nameres import NameRes
+from renci_ner.services.linkers.nameres import NameRes
 
 
 def test_check():
