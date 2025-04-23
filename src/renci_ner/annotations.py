@@ -49,7 +49,9 @@ class NormalizedAnnotation(Annotation):
         super().__setattr__(name, value)
 
     @classmethod
-    def from_annotation(cls, annotation: Annotation, curie=None, biolink_type=None, label=None) -> Self:
+    def from_annotation(
+        cls, annotation: Annotation, curie=None, biolink_type=None, label=None
+    ) -> Self:
         """
         Creates an instance of NormalizedAnnotation from the provided Annotation object.
 

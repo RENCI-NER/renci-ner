@@ -72,7 +72,9 @@ class NodeNorm:
         )
         if response.status_code != 200:
             # raise Exception(f"NodeNorm returned status code {response.status_code}")
-            logging.error(f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {ids}, skipping.")
+            logging.error(
+                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {ids}, skipping."
+            )
             return annotated_text
 
         results = response.json()
@@ -86,23 +88,36 @@ class NodeNorm:
 
             # We have a result!
             result = results[annotation.id]
-            if 'id' not in result or 'identifier' not in result['id'] or not result['id']['identifier']:
+            if (
+                "id" not in result
+                or "identifier" not in result["id"]
+                or not result["id"]["identifier"]
+            ):
                 # No identifier, skip.
                 output_annotations.append(annotation)
                 continue
 
-            types = result['type']
+            types = result["type"]
             if not types:
-                types = ['biolink:NamedThing']
+                types = ["biolink:NamedThing"]
 
-            normalized_annotation = NormalizedAnnotation.from_annotation(annotation, result['id']['identifier'], types[0], result['id'].get('label', None))
-            normalized_annotation.based_on = normalized_annotation.based_on + [annotation]
+            normalized_annotation = NormalizedAnnotation.from_annotation(
+                annotation,
+                result["id"]["identifier"],
+                types[0],
+                result["id"].get("label", None),
+            )
+            normalized_annotation.based_on = normalized_annotation.based_on + [
+                annotation
+            ]
             normalized_annotation.provenances.append(self.provenance)
-            normalized_annotation.props['types'] = types
-            normalized_annotation.props['ic'] = results.get('ic', None)
+            normalized_annotation.props["types"] = types
+            normalized_annotation.props["ic"] = results.get("ic", None)
 
             if props.get("description", False):
-                normalized_annotation.props['description'] = result['id'].get('description', None)
+                normalized_annotation.props["description"] = result["id"].get(
+                    "description", None
+                )
 
             output_annotations.append(normalized_annotation)
 
