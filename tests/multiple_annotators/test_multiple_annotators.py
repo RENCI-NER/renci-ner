@@ -19,7 +19,7 @@ def test_multiple_annotators():
     nodenorm = NodeNorm()
 
     text = "The brain is located inside the nervous system."
-    result_nameres = biomegatron.annotate(text).reannotate(nameres, {"limit": 1})
+    result_nameres = biomegatron.annotate(text).reannotate(nameres, {"limit": 1}).transform(nodenorm)
     result_sapbert = biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm)
 
     assert result_nameres.text == text
@@ -33,11 +33,16 @@ def test_multiple_annotators():
         assert nameres_annotation.label == sapbert_annotation.label
         assert nameres_annotation.type == sapbert_annotation.type
 
+        # NameRes and BabelSAPBERT should not need to be normalized.
         assert len(nameres_annotation.provenances) == 2
         assert nameres_annotation.provenances[0] == biomegatron.provenance
         assert nameres_annotation.provenances[1] == nameres.provenance
 
-        assert len(sapbert_annotation.provenances) == 3
-        assert sapbert_annotation.provenances[0] == biomegatron.provenance
-        assert sapbert_annotation.provenances[1] == sapbert.provenance
-        assert sapbert_annotation.provenances[2] == nodenorm.provenance
+        # Some SAPBERT annotations may need to be normalized.
+        if len(sapbert_annotation.provenances) == 2:
+            assert sapbert_annotation.provenances[0] == biomegatron.provenance
+            assert sapbert_annotation.provenances[1] == sapbert.provenance
+        else:
+            assert sapbert_annotation.provenances[0] == biomegatron.provenance
+            assert sapbert_annotation.provenances[1] == sapbert.provenance
+            assert sapbert_annotation.provenances[2] == nodenorm.provenance
