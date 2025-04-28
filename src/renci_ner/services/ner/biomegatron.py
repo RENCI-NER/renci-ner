@@ -76,7 +76,7 @@ class BioMegatron(Annotator):
                     label="",
                     type=denotation.get("obj", ""),
                     props={},
-                    provenances=[self.provenance],
+                    provenance=self.provenance,
                 )
             )
 

@@ -95,7 +95,7 @@ class NameRes(Annotator):
                         "types": result.get("types", []),
                         "taxa": result.get("taxa", []),
                     },
-                    provenances=[self.provenance],
+                    provenance=self.provenance,
                     # Since we're using the whole text, let's just use that
                     # as the start/end.
                     start=0,

@@ -33,12 +33,12 @@ def test_check():
     assert nameres_actin.id == "NCBIGene:71"
     assert nameres_actin.label == "ACTG1"
     assert nameres_actin.curie == "NCBIGene:71"
-    assert nameres_actin.type == "biolink:Gene"
-    assert nameres_actin.provenances[-1] == nodenorm.provenance
+    assert nameres_actin.biolink_type == "biolink:Gene"
+    assert nameres_actin.provenance == nodenorm.provenance
 
     # SAPBERT returns ACTIN (PANTHER.FAMILY:PTHR11937), which normalizes to itself,
     # so effectively no normalization appears to have occurred.
     assert sapbert_actin.label == "ACTIN"
     assert sapbert_actin.id == "PANTHER.FAMILY:PTHR11937"
-    assert sapbert_actin.type == "biolink:GeneFamily"
-    assert sapbert_actin.provenances[-1] == sapbert.provenance
+    assert sapbert_actin.biolink_type == "biolink:GeneFamily"
+    assert sapbert_actin.provenance == sapbert.provenance

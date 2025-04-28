@@ -109,14 +109,11 @@ class NodeNorm(Transformer):
 
             normalized_annotation = NormalizedAnnotation.from_annotation(
                 annotation,
-                result["id"]["identifier"],
-                types[0],
-                result["id"].get("label", None),
+                provenance=self.provenance,
+                curie=result["id"]["identifier"],
+                biolink_type=types[0],
+                label=result["id"].get("label", ""),
             )
-            normalized_annotation.based_on = normalized_annotation.based_on + [
-                annotation
-            ]
-            normalized_annotation.provenances.append(self.provenance)
             normalized_annotation.props["types"] = types
             normalized_annotation.props["ic"] = results.get("ic", None)
 

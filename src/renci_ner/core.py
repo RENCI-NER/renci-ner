@@ -21,10 +21,13 @@ class Annotation:
     type: str
     start: int
     end: int
-    provenances: list[AnnotationProvenance] = field(default_factory=list)
+    provenance: AnnotationProvenance
     based_on: list[Self] = field(default_factory=list)
     props: dict = field(default_factory=dict)
 
+    @property
+    def provenances(self) -> list[AnnotationProvenance]:
+        return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
 
 @dataclass
 class NormalizedAnnotation(Annotation):
@@ -49,7 +52,7 @@ class NormalizedAnnotation(Annotation):
 
     @classmethod
     def from_annotation(
-        cls, annotation: Annotation, curie=None, biolink_type=None, label=None
+        cls, annotation: Annotation, provenance: AnnotationProvenance, curie=None, biolink_type=None, label=None
     ) -> Self:
         """
         Creates an instance of NormalizedAnnotation from the provided Annotation object.
@@ -63,6 +66,8 @@ class NormalizedAnnotation(Annotation):
         :param annotation: The Annotation instance used as the basis for constructing
             the NormalizedAnnotation object.
         :type annotation: Annotation
+        :param provenance: The provenance of the normalized annotation.
+        :type provenance: AnnotationProvenance
         :param curie: Optional CURIE string for additional annotation details. If not
             provided, it defaults to None.
         :type curie: str, optional
@@ -90,7 +95,7 @@ class NormalizedAnnotation(Annotation):
             text=annotation.text,
             start=annotation.start,
             end=annotation.end,
-            provenances=annotation.provenances,
+            provenance=provenance,
             based_on=annotation.based_on,
             props=annotation.props,
             # These fields are overwritten during normalization.
@@ -151,14 +156,12 @@ class AnnotatedText:
                 # Leave the current annotation unchanged.
                 new_annotations.append(annotation)
             else:
-                # We have one or more annotations. So we need to update:
-                # - the annotation provenances by adding this annotator to the end of that list.
-                new_provenances = [*annotation.provenances, annotator.provenance]
-                # - the based_on by adding annotation to the existing list.
+                # We have one or more annotations. So we need to update the based_on by adding annotation to the
+                # existing list.
                 new_based_on = [*annotation.based_on, annotation]
 
                 for reannotation in reannotations:
-                    reannotation.provenances = new_provenances
+                    reannotation.provenance = annotator.provenance
                     reannotation.based_on = new_based_on
                     new_annotations.append(reannotation)
 

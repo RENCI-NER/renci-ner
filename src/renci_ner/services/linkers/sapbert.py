@@ -52,7 +52,7 @@ class SAPBERTAnnotator(Annotator):
             "score": "The (minimum) score for this result returned by SAPBERT (higher is better).",
         }
 
-    def annotate(self, text, props={}) -> list[AnnotatedText]:
+    def annotate(self, text, props={}) -> AnnotatedText:
         # Set up query.
         session = self.requests_session
 
@@ -89,7 +89,7 @@ class SAPBERTAnnotator(Annotator):
                     props={
                         "score": result.get("score", 0),
                     },
-                    provenances=[self.provenance],
+                    provenance=self.provenance,
                     # Since we're using the whole text, let's just use that
                     # as the start/end.
                     start=0,
