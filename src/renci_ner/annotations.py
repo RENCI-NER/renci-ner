@@ -106,11 +106,11 @@ class AnnotatedText:
         self.text = text
         self.annotations = annotations
 
-    def annotate_annotations_with(
-        self, annotator: "Annotator", props: dict = {}
+    def transform(
+        self, annotator, props: dict = {}
     ) -> Self:
         """
-        Re-annotate the annotations in this AnnotatedText with another annotator.
+        Transform the annotations in this AnnotatedText with another annotator.
 
         Note that this does NOT mean that the original text is reannotated -- rather, each individual annotation
         will be annotated by the next annotator. This allows us to standardize some common situations:
@@ -121,6 +121,7 @@ class AnnotatedText:
           annotation with all of those annotations, with provenance and based_on fields updated appropriately.
 
         :param annotator: The other annotator to annotate these annotations with.
+        :type annotator: Annotator
         :param props: A dictionary of properties to pass to the annotator.
         :return: AnnotatedText with annotations re-annotated with the other annotator.
         """

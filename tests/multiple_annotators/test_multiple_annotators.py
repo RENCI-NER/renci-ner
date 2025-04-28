@@ -17,8 +17,8 @@ def test_multiple_annotators():
     sapbert = SAPBERTAnnotator()
 
     text = "The brain is located inside the nervous system."
-    result_nameres = biomegatron.annotate(text).annotate_annotations_with(nameres, { "limit": 1 })
-    result_sapbert = biomegatron.annotate(text).annotate_annotations_with(sapbert, { "limit": 1 })
+    result_nameres = biomegatron.annotate(text).transform(nameres, {"limit": 1})
+    result_sapbert = biomegatron.annotate(text).transform(sapbert, {"limit": 1})
 
     assert result_nameres.text == text
     assert result_nameres.text == result_sapbert.text
