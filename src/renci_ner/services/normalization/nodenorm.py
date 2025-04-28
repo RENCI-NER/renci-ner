@@ -5,6 +5,8 @@
 #
 import logging
 
+import requests
+
 from renci_ner.annotations import (
     AnnotatedText,
     Annotation,
@@ -12,8 +14,6 @@ from renci_ner.annotations import (
     NormalizedAnnotation,
 )
 from renci_ner.services.core import Annotator
-
-import requests
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"

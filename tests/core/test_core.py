@@ -1,4 +1,5 @@
 import pytest
+
 from renci_ner.annotations import NormalizedAnnotation
 
 

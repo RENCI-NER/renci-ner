@@ -5,10 +5,10 @@
 #
 import datetime
 
+import requests
+
 from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance
 from renci_ner.services.core import Annotator
-
-import requests
 
 # Configuration.
 RENCI_BIOMEGATRON_URL = "https://med-nemo.apps.renci.org"

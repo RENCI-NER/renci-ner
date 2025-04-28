@@ -3,6 +3,8 @@
 # Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
+import requests
+
 from renci_ner.annotations import (
     AnnotatedText,
     Annotation,
@@ -10,8 +12,6 @@ from renci_ner.annotations import (
     NormalizedAnnotation,
 )
 from renci_ner.services.core import Annotator
-
-import requests
 
 # Configuration.
 RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"
