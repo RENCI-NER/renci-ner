@@ -106,11 +106,11 @@ class AnnotatedText:
         self.text = text
         self.annotations = annotations
 
-    def transform(
+    def reannotate(
         self, annotator, props: dict = {}
     ) -> Self:
         """
-        Transform the annotations in this AnnotatedText with another annotator.
+        Reannotate the annotations in this AnnotatedText with another annotator.
 
         Note that this does NOT mean that the original text is reannotated -- rather, each individual annotation
         will be annotated by the next annotator. This allows us to standardize some common situations:
