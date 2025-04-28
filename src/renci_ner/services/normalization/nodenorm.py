@@ -10,14 +10,14 @@ import requests
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
-    NormalizedAnnotation,
+    NormalizedAnnotation, Transformer,
 )
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
 
 
-class NodeNorm:
+class NodeNorm(Transformer):
     """
     The Translator Node Normalizer.
     """

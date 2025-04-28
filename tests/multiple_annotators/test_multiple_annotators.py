@@ -4,6 +4,7 @@ from requests import HTTPError
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
+from renci_ner.services.normalization.nodenorm import NodeNorm
 
 
 def test_multiple_annotators():
@@ -15,10 +16,11 @@ def test_multiple_annotators():
 
     nameres = NameRes()
     sapbert = SAPBERTAnnotator()
+    nodenorm = NodeNorm()
 
     text = "The brain is located inside the nervous system."
     result_nameres = biomegatron.annotate(text).reannotate(nameres, {"limit": 1})
-    result_sapbert = biomegatron.annotate(text).reannotate(sapbert, {"limit": 1})
+    result_sapbert = biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm)
 
     assert result_nameres.text == text
     assert result_nameres.text == result_sapbert.text
@@ -35,6 +37,7 @@ def test_multiple_annotators():
         assert nameres_annotation.provenances[0] == biomegatron.provenance
         assert nameres_annotation.provenances[1] == nameres.provenance
 
-        assert len(sapbert_annotation.provenances) == 2
+        assert len(sapbert_annotation.provenances) == 3
         assert sapbert_annotation.provenances[0] == biomegatron.provenance
         assert sapbert_annotation.provenances[1] == sapbert.provenance
+        assert sapbert_annotation.provenances[2] == nodenorm.provenance

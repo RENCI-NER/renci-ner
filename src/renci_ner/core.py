@@ -106,8 +106,20 @@ class AnnotatedText:
         self.text = text
         self.annotations = annotations
 
+    def transform(self, transformer: "Transformer", props: dict = {}) -> Self:
+        """
+        Transform the annotations in this AnnotatedText with a transformer.
+
+        Note that in this case the Transformer is responsible for updating the provenance of the transformed annotations.
+
+        :param transformer: A Transformer to transform this annotated text.
+        :param props: The properties to pass to the transformer.
+        :return: The transformed AnnotatedText.
+        """
+        return transformer.transform(self, props)
+
     def reannotate(
-        self, annotator, props: dict = {}
+        self, annotator: "Annotator", props: dict = {}
     ) -> Self:
         """
         Reannotate the annotations in this AnnotatedText with another annotator.
@@ -181,3 +193,28 @@ class Annotator:
         :return: A dictionary of supported properties, with the values describing each property.
         """
         return {}
+
+class Transformer:
+    """
+    An interface for transforming annotated text.
+    """
+
+    def supported_properties(self) -> dict[str, str]:
+        """
+        Return a list of supported properties for this service.
+
+        :return: A dictionary of supported properties, with the values describing each property.
+        """
+        return {}
+
+    def transform(self, annotated_text: AnnotatedText, props={}) -> AnnotatedText:
+        """
+        Transform an annotated text into a new annotated text.
+
+        Note that in this case the Transformer is responsible for updating the provenance of the transformed annotations.
+
+        :param annotated_text: The annotated text to transform.
+        :param props: Properties supported by this transformer to use during the transformation.
+        :return: The transformed AnnotatedText.
+        """
+        return annotated_text
