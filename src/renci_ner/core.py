@@ -78,21 +78,26 @@ class NormalizedAnnotation(Annotation):
         """
 
         if label is None:
-            annotation_label = annotation.label
-        else:
-            annotation_label = label
+            label = annotation.label
+
+        if curie is None:
+            curie = annotation.id
+
+        if biolink_type is None:
+            biolink_type = annotation.type
 
         return NormalizedAnnotation(
             text=annotation.text,
-            id=annotation.id,
-            label=annotation_label,
-            type=annotation.type,
             start=annotation.start,
             end=annotation.end,
             provenances=annotation.provenances,
             based_on=annotation.based_on,
             props=annotation.props,
+            # These fields are overwritten during normalization.
+            id=curie,
             curie=curie,
+            label=label,
+            type=biolink_type,
             biolink_type=biolink_type,
         )
 

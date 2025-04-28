@@ -18,7 +18,7 @@ def test_multiple_annotators():
     sapbert = SAPBERTAnnotator()
     nodenorm = NodeNorm()
 
-    text = "The brain is located inside the nervous system."
+    text = "The brain is part of the nervous system."
     result_nameres = biomegatron.annotate(text).reannotate(nameres, {"limit": 1}).transform(nodenorm)
     result_sapbert = biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm)
 
@@ -27,6 +27,7 @@ def test_multiple_annotators():
     assert len(result_nameres.annotations) == 2
     assert len(result_nameres.annotations) == len(result_sapbert.annotations)
 
+    # Make sure that all the annotations are identical between NodeNorm and NameRes.
     for (nameres_annotation, sapbert_annotation) in zip(result_nameres.annotations, result_sapbert.annotations):
         assert nameres_annotation.text == sapbert_annotation.text
         assert nameres_annotation.id == sapbert_annotation.id

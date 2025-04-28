@@ -65,9 +65,9 @@ class NodeNorm(Transformer):
             self.get_normalized_nodes_url,
             json={
                 "curies": ids,
-                "conflate": props.get("geneprotein_conflation", "true"),
-                "drug_chemical_conflate": props.get("drugchemical_conflation", "false"),
-                "description": props.get("description", "false"),
+                "conflate": "true" if props.get("geneprotein_conflation", True) else "false",
+                "drug_chemical_conflate": "true" if props.get("drugchemical_conflation", False) else "false",
+                "description": "true" if props.get("description", False) else "false",
             },
         )
         if response.status_code != 200:
@@ -94,6 +94,12 @@ class NodeNorm(Transformer):
                 or not result["id"]["identifier"]
             ):
                 # No identifier, skip.
+                output_annotations.append(annotation)
+                continue
+
+            if (isinstance(annotation, NormalizedAnnotation) and
+                    result["id"]["identifier"] == annotation.curie):
+                # Already normalized, skip.
                 output_annotations.append(annotation)
                 continue
 
