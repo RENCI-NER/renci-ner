@@ -7,7 +7,6 @@ import requests
 
 from renci_ner.annotations import (
     AnnotatedText,
-    Annotation,
     AnnotationProvenance,
     NormalizedAnnotation,
 )

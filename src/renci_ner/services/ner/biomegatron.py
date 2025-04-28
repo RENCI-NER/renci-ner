@@ -3,7 +3,6 @@
 # Source code: https://github.com/RENCI-NER/nemo-serve
 # Hosted at: https://med-nemo.apps.renci.org/docs
 #
-import datetime
 
 import requests
 

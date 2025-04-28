@@ -9,11 +9,9 @@ import requests
 
 from renci_ner.annotations import (
     AnnotatedText,
-    Annotation,
     AnnotationProvenance,
     NormalizedAnnotation,
 )
-from renci_ner.services.core import Annotator
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
