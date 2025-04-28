@@ -5,12 +5,11 @@
 #
 import requests
 
-from renci_ner.annotations import (
+from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
-    NormalizedAnnotation,
+    NormalizedAnnotation, Annotator,
 )
-from renci_ner.services.core import Annotator
 
 # Configuration.
 RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"

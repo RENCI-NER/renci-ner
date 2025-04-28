@@ -6,8 +6,7 @@
 
 import requests
 
-from renci_ner.annotations import AnnotatedText, Annotation, AnnotationProvenance
-from renci_ner.services.core import Annotator
+from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance, Annotator
 
 # Configuration.
 RENCI_BIOMEGATRON_URL = "https://med-nemo.apps.renci.org"

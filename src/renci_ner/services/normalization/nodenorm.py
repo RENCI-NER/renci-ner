@@ -7,7 +7,7 @@ import logging
 
 import requests
 
-from renci_ner.annotations import (
+from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
     NormalizedAnnotation,

@@ -5,12 +5,11 @@
 #
 import requests
 
-from renci_ner.annotations import (
+from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
-    NormalizedAnnotation,
+    NormalizedAnnotation, Annotator,
 )
-from renci_ner.services.core import Annotator
 
 # Configuration.
 RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"

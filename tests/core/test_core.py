@@ -1,6 +1,6 @@
 import pytest
 
-from renci_ner.annotations import NormalizedAnnotation
+from renci_ner.core import NormalizedAnnotation
 
 
 def test_normalized_annotations():

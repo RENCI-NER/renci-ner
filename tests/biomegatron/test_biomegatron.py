@@ -1,7 +1,7 @@
 import pytest
 from requests import HTTPError
 
-from renci_ner.annotations import AnnotationProvenance
+from renci_ner.core import AnnotationProvenance
 from renci_ner.services.ner.biomegatron import BioMegatron
 
 
