@@ -42,7 +42,9 @@ class NodeNorm:
         self.get_normalized_nodes_url = url + "/get_normalized_nodes"
         self.requests_session = requests_session
 
-        openapi_data = requests_session.get(self.url + "/openapi.json").json()
+        response = requests.get(self.url + "/openapi.json")
+        response.raise_for_status()
+        openapi_data = response.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )

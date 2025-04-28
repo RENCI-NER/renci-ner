@@ -40,7 +40,9 @@ class NameRes(Annotator):
         self.lookup_url = url + "/lookup"
         self.requests_session = requests_session
 
-        openapi_data = requests_session.get(self.url + "/openapi.json").json()
+        response = requests.get(self.url + "/openapi.json")
+        response.raise_for_status()
+        openapi_data = response.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
@@ -72,7 +74,6 @@ class NameRes(Annotator):
         )
 
         response.raise_for_status()
-
         results = response.json()
 
         annotations = []
