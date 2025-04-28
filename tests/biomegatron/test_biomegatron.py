@@ -1,9 +1,16 @@
+import pytest
+from requests import HTTPError
+
 from renci_ner.annotations import AnnotationProvenance
 from renci_ner.services.ner.biomegatron import BioMegatron
 
 
 def test_check():
-    biomegatron = BioMegatron()
+    try:
+        biomegatron = BioMegatron()
+    except HTTPError as err:
+        pytest.skip(f"BioMegatron is not available: {err}")
+        return
 
     query = "The brain is a significant part of the nervous system."
     result = biomegatron.annotate(query)
