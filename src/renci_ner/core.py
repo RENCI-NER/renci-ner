@@ -96,7 +96,7 @@ class NormalizedAnnotation(Annotation):
             start=annotation.start,
             end=annotation.end,
             provenance=provenance,
-            based_on=annotation.based_on,
+            based_on=[*annotation.based_on, annotation],
             props=annotation.props,
             # These fields are overwritten during normalization.
             id=curie,
@@ -159,10 +159,17 @@ class AnnotatedText:
                 # We have one or more annotations. So we need to update the based_on by adding annotation to the
                 # existing list.
                 new_based_on = [*annotation.based_on, annotation]
+                base_start = annotation.start
+                base_end = annotation.end
 
                 for reannotation in reannotations:
+                    # Fix the start and end indices.
+                    reannotation.start = reannotation.start + base_start
+                    reannotation.end = reannotation.end + base_end
+
                     reannotation.provenance = annotator.provenance
                     reannotation.based_on = new_based_on
+
                     new_annotations.append(reannotation)
 
         return AnnotatedText(self.text, new_annotations)

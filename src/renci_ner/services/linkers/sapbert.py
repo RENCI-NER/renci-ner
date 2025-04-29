@@ -82,9 +82,9 @@ class SAPBERTAnnotator(Annotator):
                 NormalizedAnnotation(
                     text=text,
                     curie=result.get("curie", ""),
+                    label=result.get("name", ""),
                     biolink_type=result.get("category", ""),
                     id=result.get("curie", ""),
-                    label=result.get("name", ""),
                     type=result.get("category", ""),
                     props={
                         "score": result.get("score", 0),

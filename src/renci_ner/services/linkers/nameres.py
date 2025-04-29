@@ -81,9 +81,9 @@ class NameRes(Annotator):
                 NormalizedAnnotation(
                     text=text,
                     curie=result.get("curie", ""),
-                    biolink_type=result.get("types", ["biolink:NamedThing"])[0],
                     id=result.get("curie", ""),
                     label=result.get("label", ""),
+                    biolink_type=result.get("types", ["biolink:NamedThing"])[0],
                     type=result.get("types", ["biolink:NamedThing"])[0],
                     props={
                         "score": result.get("score", 0),
