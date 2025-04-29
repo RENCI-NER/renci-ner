@@ -3,6 +3,41 @@ A library for accessing RENCI NER services
 
 ## Data model
 
+```mermaid
+classDiagram
+  # direction RL
+
+  class AnnotatedText {
+    +text: str
+    +annotations: List[Annotation]
+  }
+
+  class Annotation {
+    +text: str
+    +id: str
+    +label: str
+    +type: str
+    +start: int
+    +end: int
+    +provenance: AnnotationProvenance
+    +based_on: List[Annotation]
+  }
+
+  class NormalizedAnnotation {
+     +curie: str
+     +biolink_type: str
+  }
+
+  class AnnotationProvenance {
+    +id : int
+    +name : string
+  }
+
+  Annotation "1" -- "1" AnnotationProvenance: "provenance"
+  AnnotatedText "1" --* "*" Annotation: "annotations"
+  NormalizedAnnotation <|-- Annotation
+```
+
 This library is based around the following core classes
 found in [`renci_ner.core`](src/renci_ner/core.py).
 
