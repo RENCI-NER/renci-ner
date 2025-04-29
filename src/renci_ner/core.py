@@ -4,6 +4,11 @@ from typing import Self
 
 @dataclass
 class AnnotationProvenance:
+    """
+    The provenance of an annotation. The goal is to simply record the name, URL, and version of the service that
+    produced this annotation -- in the future, we might also want to record the properties used in making this
+    annotation.
+    """
     name: str
     url: str
     version: str
@@ -13,6 +18,11 @@ class AnnotationProvenance:
 class Annotation:
     """
     A class for storing a single annotation.
+
+    The `based_on` field is a list of other annotations that this annotation is based on, in order of annotation:
+    for example, if you run an annotation through BioMegatron, then SAPBERT, then NodeNorm, the BioMegatron annotation
+    will be at `based_on[0]`, SAPBERT annotation will be at `based_on[1]`, and NodeNorm annotation will be at
+    `based_on[2]`.
     """
 
     text: str
@@ -27,12 +37,17 @@ class Annotation:
 
     @property
     def provenances(self) -> list[AnnotationProvenance]:
+        """ Return a list of provenances for this annotation and its based_on annotations. """
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
 
 
 @dataclass
 class NormalizedAnnotation(Annotation):
-    curie: str = None
+    """
+    A NormalizedAnnotation is an Annotation that has been normalized. It has a Biolink type (starting with `biolink:`),
+    and the ID is expected to be a CURIE.
+    """
+
     biolink_type: str = None
 
     def __setattr__(self, name, value):
@@ -62,12 +77,8 @@ class NormalizedAnnotation(Annotation):
     ) -> Self:
         """
         Creates an instance of NormalizedAnnotation from the provided Annotation object.
-
-        This method serves as a factory method to instantiate a NormalizedAnnotation
-        object using the given Annotation instance. Additional optional properties,
-        such as curie and biolink_type, may also be provided to customize the
-        generated object. The method utilizes the attributes from the Annotation
-        instance to populate the corresponding fields in the NormalizedAnnotation.
+        This mostly consists of copying the fields from the original Annotation, but
+        the label, ID and Biolink type is expected to be overridden.
 
         :param annotation: The Annotation instance used as the basis for constructing
             the NormalizedAnnotation object.
@@ -106,7 +117,6 @@ class NormalizedAnnotation(Annotation):
             props=annotation.props,
             # These fields are overwritten during normalization.
             id=curie,
-            curie=curie,
             label=label,
             type=biolink_type,
             biolink_type=biolink_type,
@@ -119,10 +129,11 @@ class AnnotatedText:
     """
 
     def __init__(self, text: str, annotations: list[Annotation]) -> None:
+        """ Create an annotated text for a given text and annotations."""
         self.text = text
         self.annotations = annotations
 
-    def transform(self, transformer: "Transformer", props: dict = {}) -> Self:
+    def transform(self, transformer: "Transformer", props=None) -> Self:
         """
         Transform the annotations in this AnnotatedText with a transformer.
 
@@ -132,6 +143,8 @@ class AnnotatedText:
         :param props: The properties to pass to the transformer.
         :return: The transformed AnnotatedText.
         """
+        if props is None:
+            props = {}
         return transformer.transform(self, props)
 
     def reannotate(self, annotator: "Annotator", props: dict = {}) -> Self:
@@ -181,7 +194,7 @@ class AnnotatedText:
 
 class Annotator:
     """
-    An interface for annotating text using a service.
+    An interface for a service that can annotate text.
     """
 
     @property
@@ -197,17 +210,21 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props: dict = {}) -> AnnotatedText:
+    def annotate(self, text: str, props=None) -> AnnotatedText:
         """
-        Annotate a text with a set of service-specific properties.
+        Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
+        `props`.
 
+        :param text: The text to annotate.
+        :param props: Properties supported by this annotator to use during the annotation.
         :return AnnotatedText: The annotated text.
         """
-        pass
+        return AnnotatedText(text, [])
 
     def supported_properties(self) -> dict[str, str]:
         """
-        Return a list of supported properties for this service.
+        Return a dictionary of supported properties for this service. The keys are the property names, and the values
+        are descriptions of the properties.
 
         :return: A dictionary of supported properties, with the values describing each property.
         """
@@ -221,7 +238,8 @@ class Transformer:
 
     def supported_properties(self) -> dict[str, str]:
         """
-        Return a list of supported properties for this service.
+        Return a dictionary of supported properties for this service. The keys are the property names, and the values
+        are descriptions of the properties.
 
         :return: A dictionary of supported properties, with the values describing each property.
         """
