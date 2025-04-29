@@ -62,7 +62,6 @@ classDiagram
   }
 
   class NormalizedAnnotation {
-     +curie: str
      +biolink_type: str
   }
 
@@ -134,9 +133,9 @@ properties after it has been changed into a `NormalizedAnnotation`.
 An annotation that additionally has CURIE and Biolink Type properties.
 Normalizing an annotation will create a new NormalizedAnnotation.
 You can use typing or duck typing to determine if an annotation is a
-NormalizedAnnotation (i.e. via `instanceof()` or `ann.curie`).
+NormalizedAnnotation (i.e. via `instanceof()` or `ann.biolink_type`).
+The ID should be a CURIE.
 
-* `curie` (str): The CURIE for the entity.
 * `biolink_type` (str): The Biolink type for the entity.
 
 ### AnnotationProvenance
