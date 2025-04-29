@@ -1,6 +1,39 @@
 # renci-ner
 A library for accessing RENCI NER services
 
+## Usage
+
+This package uses [uv](https://github.com/astral-sh/uv) and [poetry](https://python-poetry.org/) for Python packaging,
+and [pytest](https://docs.pytest.org/en/stable/) for testing.
+
+You can run the tests by running:
+
+```shell
+$ uv run pytest                                                                                                                                                   ─╯
+========================================================================= test session starts =========================================================================
+platform darwin -- Python 3.11.11, pytest-8.3.5, pluggy-1.5.0
+rootdir: /Users/gaurav/Developer/ner/renci-ner
+configfile: pyproject.toml
+collected 6 items                                                                                                                                                     
+
+tests/biomegatron/test_biomegatron.py .                                                                                                                         [ 16%]
+tests/core/test_core.py .                                                                                                                                       [ 33%]
+tests/multiple_annotators/test_multiple_annotators.py .                                                                                                         [ 50%]
+tests/nameres/test_nameres.py .                                                                                                                                 [ 66%]
+tests/nodenorm/test_nodenorm.py .                                                                                                                               [ 83%]
+tests/sapbert/test_sapbert.py .                                                                                                                                 [100%]
+
+========================================================================= 6 passed in 10.05s ==========================================================================
+```
+
+To contribute, note that GitHub Actions will run all the tests using PyTest and will use
+[ruff](https://github.com/astral-sh/ruff) to check linting. To reformat your code, run:
+
+```shell
+$ uv run ruff format
+17 files left unchanged
+```
+
 ## Data model
 
 ```mermaid

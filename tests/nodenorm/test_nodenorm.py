@@ -19,8 +19,16 @@ def test_check():
     nodenorm = NodeNorm()
 
     text = "Actin in the brain is part of the nervous system."
-    result_nameres = biomegatron.annotate(text).reannotate(nameres, {"limit": 1}).transform(nodenorm, {'geneprotein_conflation': True})
-    result_sapbert = biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm, {'geneprotein_conflation': True})
+    result_nameres = (
+        biomegatron.annotate(text)
+        .reannotate(nameres, {"limit": 1})
+        .transform(nodenorm, {"geneprotein_conflation": True})
+    )
+    result_sapbert = (
+        biomegatron.annotate(text)
+        .reannotate(sapbert, {"limit": 1})
+        .transform(nodenorm, {"geneprotein_conflation": True})
+    )
 
     assert result_nameres.text == text
     assert result_nameres.text == result_sapbert.text

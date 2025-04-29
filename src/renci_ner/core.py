@@ -29,6 +29,7 @@ class Annotation:
     def provenances(self) -> list[AnnotationProvenance]:
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
 
+
 @dataclass
 class NormalizedAnnotation(Annotation):
     curie: str = None
@@ -52,7 +53,12 @@ class NormalizedAnnotation(Annotation):
 
     @classmethod
     def from_annotation(
-        cls, annotation: Annotation, provenance: AnnotationProvenance, curie=None, biolink_type=None, label=None
+        cls,
+        annotation: Annotation,
+        provenance: AnnotationProvenance,
+        curie=None,
+        biolink_type=None,
+        label=None,
     ) -> Self:
         """
         Creates an instance of NormalizedAnnotation from the provided Annotation object.
@@ -128,9 +134,7 @@ class AnnotatedText:
         """
         return transformer.transform(self, props)
 
-    def reannotate(
-        self, annotator: "Annotator", props: dict = {}
-    ) -> Self:
+    def reannotate(self, annotator: "Annotator", props: dict = {}) -> Self:
         """
         Reannotate the annotations in this AnnotatedText with another annotator.
 
@@ -208,6 +212,7 @@ class Annotator:
         :return: A dictionary of supported properties, with the values describing each property.
         """
         return {}
+
 
 class Transformer:
     """
