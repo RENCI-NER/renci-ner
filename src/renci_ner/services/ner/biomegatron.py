@@ -43,10 +43,17 @@ class BioMegatron(Annotator):
         )
 
     def supported_properties(self):
+        """Some configurable parameters for BioMegatron (none at present)."""
         return {}
 
     def annotate(self, text, props={}) -> AnnotatedText:
-        # Set up query.
+        """
+        Annotate text using BioMegatron.
+
+        :param text: Text to annotate.
+        :param props: Properties to pass to BioMegatron.
+        :return: An AnnotatedText object containing the annotations.
+        """
         session = self.requests_session
 
         response = session.post(
