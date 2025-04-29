@@ -5,7 +5,6 @@ from renci_ner.core import (
     AnnotatedText,
     Annotation,
     NormalizedAnnotation,
-    AnnotationProvenance,
 )
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
