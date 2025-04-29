@@ -1,5 +1,5 @@
 #
-# The Translator Node Normalizer.
+# The Translator Node Normalizer as a Transformer.
 # Source code: https://github.com/TranslatorSRI/NodeNormalization
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
@@ -20,7 +20,7 @@ RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
 
 class NodeNorm(Transformer):
     """
-    The Translator Node Normalizer.
+    The Translator Node Normalizer as a Transformer.
     """
 
     @property
@@ -56,8 +56,18 @@ class NodeNorm(Transformer):
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
         }
 
-    def transform(self, annotated_text: AnnotatedText, props={}) -> AnnotatedText:
-        # Set up query.
+    def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
+        """
+        Transform an AnnotatedText object using NodeNorm. For every annotation, we pass the IDs to NodeNorm, and if
+        it changes the identifier, we would return a NormalizedAnnotation. Otherwise, we return the original
+        annotation.
+
+        :param annotated_text: The annotated text to transform.
+        :param props: Properties to pass to NodeNorm (see supported_properties).
+        :return: The AnnotatedText with normalized annotations where possible.
+        """
+        if props is None:
+            props = {}
         session = self.requests_session
 
         ids = list(map(lambda a: a.id, annotated_text.annotations))
