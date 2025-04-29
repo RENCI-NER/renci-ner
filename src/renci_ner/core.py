@@ -124,15 +124,14 @@ class NormalizedAnnotation(Annotation):
         )
 
 
+@dataclass
 class AnnotatedText:
     """
     A class for storing a text along with a set of annotations from a single source.
     """
 
-    def __init__(self, text: str, annotations: list[Annotation]) -> None:
-        """Create an annotated text for a given text and annotations."""
-        self.text = text
-        self.annotations = annotations
+    text: str
+    annotations: list[Annotation] = field(default_factory=list)
 
     def transform(self, transformer: "Transformer", props=None) -> Self:
         """
@@ -178,12 +177,16 @@ class AnnotatedText:
                 # existing list.
                 new_based_on = [*annotation.based_on, annotation]
                 base_start = annotation.start
-                base_end = annotation.end
 
                 for reannotation in reannotations:
                     # Fix the start and end indices.
-                    reannotation.start = reannotation.start + base_start
-                    reannotation.end = reannotation.end + base_end
+                    new_start = reannotation.start
+
+                    text_size = len(reannotation.text)
+                    assert text_size == (reannotation.end - reannotation.start)
+
+                    reannotation.start = base_start + new_start
+                    reannotation.end = base_start + new_start + text_size
 
                     reannotation.provenance = annotator.provenance
                     reannotation.based_on = new_based_on

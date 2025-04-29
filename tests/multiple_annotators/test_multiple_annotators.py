@@ -1,6 +1,7 @@
 import pytest
 from requests import HTTPError
 
+from renci_ner.core import AnnotatedText, Annotation, NormalizedAnnotation, AnnotationProvenance
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
@@ -35,6 +36,150 @@ def test_multiple_annotators():
     assert result_nameres.text == result_sapbert.text
     assert len(result_nameres.annotations) == 2
     assert len(result_nameres.annotations) == len(result_sapbert.annotations)
+
+    # If we did the start/end math correctly, we should be able to recover the texts.
+    assert text[result_nameres.annotations[0].start:result_nameres.annotations[0].end] == "brain"
+    assert text[result_nameres.annotations[1].start:result_nameres.annotations[1].end] == "nervous system"
+
+    # Check the based_on.
+    # We may need to remove the scores later to avoid doing a float conversion.
+    assert result_nameres == AnnotatedText("The brain is part of the nervous system.", [
+        NormalizedAnnotation(
+            text="brain",
+            id="UBERON:0000955",
+            label="brain",
+            type='biolink:GrossAnatomicalStructure',
+            biolink_type="biolink:GrossAnatomicalStructure",
+            start=4,
+            end=9,
+            provenance=nameres.provenance,
+            based_on=[
+                Annotation(
+                    text='brain',
+                    id='I1-',
+                    label='',
+                    type='biolink:AnatomicalEntity',
+                    start=4,
+                    end=9,
+                    provenance=biomegatron.provenance,
+                    based_on=[],
+                    props={}
+                )
+            ],
+            props={
+                'clique_identifier_count': 5,
+                'highlighting': {},
+                'score': 99.086334,
+                'synonyms': [
+                    'Br',
+                    'BRA',
+                    'brain',
+                    'Brain',
+                    'BRAIN',
+                    'brains',
+                    'Cerebral',
+                    'cerebral',
+                    'CNS-Brain',
+                    'the brain',
+                    'encephalon',
+                    'Encephalon',
+                    'Brain, NOS',
+                    'human brain',
+                    'synganglion',
+                    'Entire brain',
+                    'Brain structure',
+                    'brain structure',
+                    'vertebrate brain',
+                    'Entire encephalon',
+                    'Structure of brain',
+                    'Nervous System, Brain',
+                    'suprasegmental structures',
+                    'Entire brain (body structure)',
+                    'Brain structure (body structure)',
+                    'suprasegmental levels of nervous system',
+                ],
+                'taxa': [],
+                'types': [
+                       'biolink:GrossAnatomicalStructure',
+                       'biolink:AnatomicalEntity',
+                       'biolink:PhysicalEssence',
+                       'biolink:OrganismalEntity',
+                       'biolink:SubjectOfInvestigation',
+                       'biolink:BiologicalEntity',
+                       'biolink:ThingWithTaxon',
+                       'biolink:NamedThing',
+                       'biolink:Entity',
+                       'biolink:PhysicalEssenceOrOccurrent',
+                ]
+            }
+        ),
+        NormalizedAnnotation(
+            text="nervous system",
+            id="UBERON:0001016",
+            label="nervous system",
+            type="biolink:AnatomicalEntity",
+            biolink_type="biolink:AnatomicalEntity",
+            start=25,
+            end=39,
+            provenance=nameres.provenance,
+            based_on=[
+                Annotation(
+                    text='nervous system',
+                    id='I6-',
+                    label='',
+                    type='biolink:AnatomicalEntity',
+                    start=25,
+                    end=39,
+                    provenance=biomegatron.provenance,
+                    based_on=[],
+                    props={}
+                )
+            ],
+            props={
+                                   'clique_identifier_count': 8,
+                                   'highlighting': {},
+                                   'score': 137.36043,
+                                   'synonyms': [
+                                           'nerve net',
+                                           'Neurologic',
+                                           'Nervous System',
+                                           'Nervous system',
+                                           'nervous system',
+                                           'Nervous Systems',
+                                           'nervous systems',
+                                           'System, Nervous',
+                                           'systema nervosum',
+                                           'Systems, Nervous',
+                                           'Systema nervosum',
+                                           'neurologic system',
+                                           'Neurologic system',
+                                           'neurologic systems',
+                                           'NS - Nervous system',
+                                           'Nervous system, NOS',
+                                           'neurological system',
+                                           'Neurologic Body System',
+                                           'Neurologic Organ System',
+                                           'Body System, Neurologic',
+                                           'Nervous system structure',
+                                           'Organ System, Neurologic',
+                                           'Structure of nervous system',
+                                           'Structure of nervous system (body structure)',
+                                       ],
+                                   'taxa': [],
+                                   'types': [
+                                           'biolink:AnatomicalEntity',
+                                           'biolink:PhysicalEssence',
+                                           'biolink:OrganismalEntity',
+                                           'biolink:SubjectOfInvestigation',
+                                           'biolink:BiologicalEntity',
+                                           'biolink:ThingWithTaxon',
+                                           'biolink:NamedThing',
+                                           'biolink:Entity',
+                                           'biolink:PhysicalEssenceOrOccurrent',
+                                       ]
+            }
+        )
+    ])
 
     # Make sure that all the annotations are identical between NodeNorm and NameRes.
     for nameres_annotation, sapbert_annotation in zip(
