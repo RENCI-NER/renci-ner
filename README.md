@@ -5,11 +5,16 @@ A library for accessing RENCI NER services
 
 ```mermaid
 classDiagram
-  # direction RL
+  direction TD
 
   class AnnotatedText {
     +text: str
     +annotations: List[Annotation]
+  }
+
+  class AnnotationProvenance {
+    +id : int
+    +name : string
   }
 
   class Annotation {
@@ -26,11 +31,6 @@ classDiagram
   class NormalizedAnnotation {
      +curie: str
      +biolink_type: str
-  }
-
-  class AnnotationProvenance {
-    +id : int
-    +name : string
   }
 
   Annotation "1" -- "1" AnnotationProvenance: "provenance"
