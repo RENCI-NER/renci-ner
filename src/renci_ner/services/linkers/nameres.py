@@ -18,7 +18,7 @@ RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"
 
 class NameRes(Annotator):
     """
-    A Named Entity Linker based on the Babel cliques.
+    An Apache Solr based Named Entity Linker based on the Babel cliques.
     """
 
     @property
@@ -30,9 +30,9 @@ class NameRes(Annotator):
 
     def __init__(self, url=RENCI_NAMERES_URL, requests_session=requests.Session()):
         """
-        Set up a BioMegatron service.
+        Set up a NameRes service.
 
-        :param url: The URL of the BioMegatron service.
+        :param url: The URL of the NameRes service.
         :param requests_session: A Requests session object to use instead of the default one.
         """
         self.url = url
@@ -47,15 +47,27 @@ class NameRes(Annotator):
         )
 
     def supported_properties(self):
-        """Some configurable parameters."""
+        """ Configurable properties for NameRes. """
         return {
             "autocomplete": "(true/false, default: false) Whether to search for incomplete words (e.g. 'bra' for brain).",
             "limit": "(int, default: 10) The number of results to return.",
-            # TODO: add remaining.
+            "highlighting": "(true/false, default: false) Whether to return lists of the names and synonyms matched by the query.",
+            "biolink_types": "(list of biolink types, default: []) The biolink types to filter results to, combined with OR.",
+            "only_prefixes": "(list of prefixes, default: []) The prefixes to filter results to, combined with OR.",
+            "exclude_prefixes": "(list of prefixes, default: []) The prefixes to exclude from search results, combined with AND.",
+            "only_taxa": "(list of taxa, default: []) The taxa to filter results to as NCBITaxon identifiers, combined with OR.",
         }
 
-    def annotate(self, text, props={}) -> AnnotatedText:
-        # Set up query.
+    def annotate(self, text, props=None) -> AnnotatedText:
+        """
+        Annotate a piece of text using NameRes.
+
+        :param text: A piece of text with the label of a biomedical entity (e.g. "brain" or "ACT1").
+        :param props: A dictionary of properties to configure NameRes.
+        :return: An AnnotatedText object containing the annotations.
+        """
+        if props is None:
+            props = {}
         session = self.requests_session
 
         response = session.get(
