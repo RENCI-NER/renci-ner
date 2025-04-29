@@ -8,6 +8,10 @@ from renci_ner.services.normalization.nodenorm import NodeNorm
 
 
 def test_multiple_annotators():
+    """
+    Test multiple annotators and transformers on the same text.
+    """
+
     try:
         biomegatron = BioMegatron()
     except HTTPError as err:
@@ -26,6 +30,7 @@ def test_multiple_annotators():
         biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm)
     )
 
+    # Check NameRes results, which we expect to be identical to the SAPBERT results.
     assert result_nameres.text == text
     assert result_nameres.text == result_sapbert.text
     assert len(result_nameres.annotations) == 2

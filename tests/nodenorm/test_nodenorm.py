@@ -8,6 +8,9 @@ from renci_ner.services.normalization.nodenorm import NodeNorm
 
 
 def test_check():
+    """
+    Test if we can use NodeNorm as a transformer on top of NameRes and BabelSAPBERT.
+    """
     try:
         biomegatron = BioMegatron()
     except HTTPError as err:

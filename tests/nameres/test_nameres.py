@@ -4,6 +4,7 @@ from renci_ner.services.linkers.nameres import NameRes
 
 
 def test_check():
+    """ Check that NameRes can be used to annotate a single word. """
     nameres = NameRes()
     result = nameres.annotate("brain", {"limit": 11})
     assert result.text == "brain"

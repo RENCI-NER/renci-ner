@@ -3,7 +3,10 @@ import pytest
 from renci_ner.core import AnnotationProvenance, NormalizedAnnotation
 
 
-def test_normalized_annotations():
+def test_normalized_annotations_biolink_type():
+    """
+    Check if we constrain biolink_type to be prefixed with `biolink:`.
+    """
     provenance = AnnotationProvenance("Test", "http://example.com", "0.1.0")
 
     # NormalizedAnnotations without a `biolink:` prefix are not allowed!

@@ -6,6 +6,9 @@ from renci_ner.services.ner.biomegatron import BioMegatron
 
 
 def test_check():
+    """
+    Basic functionality checking for BioMegatron.
+    """
     try:
         biomegatron = BioMegatron()
     except HTTPError as err:
