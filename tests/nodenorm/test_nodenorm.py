@@ -1,6 +1,6 @@
-import re
+import pytest
+from requests import HTTPError
 
-from renci_ner.core import AnnotatedText
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
@@ -8,7 +8,12 @@ from renci_ner.services.normalization.nodenorm import NodeNorm
 
 
 def test_check():
-    biomegatron = BioMegatron()
+    try:
+        biomegatron = BioMegatron()
+    except HTTPError as err:
+        pytest.skip(f"BioMegatron is not available: {err}")
+        return
+
     nameres = NameRes()
     sapbert = SAPBERTAnnotator()
     nodenorm = NodeNorm()
