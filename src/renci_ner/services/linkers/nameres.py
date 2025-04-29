@@ -47,7 +47,7 @@ class NameRes(Annotator):
         )
 
     def supported_properties(self):
-        """ Configurable properties for NameRes. """
+        """Configurable properties for NameRes."""
         return {
             "autocomplete": "(true/false, default: false) Whether to search for incomplete words (e.g. 'bra' for brain).",
             "limit": "(int, default: 10) The number of results to return.",

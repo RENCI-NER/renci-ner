@@ -48,7 +48,7 @@ class BabelSAPBERTAnnotator(Annotator):
         )
 
     def supported_properties(self):
-        """ Configurable properties for SAPBERT. """
+        """Configurable properties for SAPBERT."""
         return {
             "limit": "The maximum number of results to return.",
             "score": "The minimum score for this result returned by SAPBERT (higher is better).",
