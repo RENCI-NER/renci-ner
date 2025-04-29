@@ -155,6 +155,18 @@ be necessary someday.
 
 ### Annotator
 
-An annotator is a class that takes a piece of text and returns an AnnotatedText.
+An annotator is a class that can take a piece of text and return an AnnotatedText.
+
+AnnotatedText allows annotators to be chained: for example, you can use BioMegatron
+to identify biomedical concepts in a text, then use NameRes or BabelSAPBERT to link those
+identifiers to biomedical identifiers.
+
+e.g. BioMegatron, NameRes, BabelSAPBERT
 
 ### Transformer
+
+A transformer transforms an AnnotatedText into another AnnotatedText.
+AnnotatedText allows transformers to be chained, but doesn't really provide any special features
+for that.
+
+e.g. NodeNorm for normalizing IDs.
