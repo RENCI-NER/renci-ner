@@ -17,7 +17,7 @@ RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"
 DEFAULT_LIMIT = 10
 
 
-class SAPBERTAnnotator(Annotator):
+class BabelSAPBERTAnnotator(Annotator):
     """
     Provides an Annotator interface to a SAPBERT service.
     """
@@ -48,13 +48,22 @@ class SAPBERTAnnotator(Annotator):
         )
 
     def supported_properties(self):
+        """ Configurable properties for SAPBERT. """
         return {
             "limit": "The maximum number of results to return.",
-            "score": "The (minimum) score for this result returned by SAPBERT (higher is better).",
+            "score": "The minimum score for this result returned by SAPBERT (higher is better).",
         }
 
-    def annotate(self, text, props={}) -> AnnotatedText:
-        # Set up query.
+    def annotate(self, text, props=None) -> AnnotatedText:
+        """
+        Annotate text using BabelSAPBERT.
+
+        :param text: The text to annotate.
+        :param props: The properties to pass to SAPBERT.
+        :return: An AnnotatedText object containing the annotations.
+        """
+        if props is None:
+            props = {}
         session = self.requests_session
 
         min_score = props.get("score", 0)
@@ -72,7 +81,7 @@ class SAPBERTAnnotator(Annotator):
         response.raise_for_status()
         results = response.json()
 
-        # Find the first result that meets our criteria.
+        # Find all the results that meet our criteria.
         annotations = []
         for result in results:
             if result.get("score", 0) < min_score:

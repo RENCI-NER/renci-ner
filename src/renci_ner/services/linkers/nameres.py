@@ -1,5 +1,5 @@
 #
-# A Named Entity Linker based on the Babel cliques.
+# An Apache Solr based Named Entity Linker based on the Babel cliques.
 # Source code: https://github.com/TranslatorSRI/NameResolution
 # Hosted at: https://name-resolution-sri.renci.org/docs
 #

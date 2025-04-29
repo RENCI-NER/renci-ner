@@ -1,9 +1,9 @@
 from renci_ner.core import AnnotationProvenance
-from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
+from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 
 
 def test_check():
-    sapbert = SAPBERTAnnotator()
+    sapbert = BabelSAPBERTAnnotator()
     result = sapbert.annotate("brain", {"limit": 11})
     assert result.text == "brain"
     annotations = result.annotations
