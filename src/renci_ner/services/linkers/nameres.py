@@ -8,7 +8,8 @@ import requests
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
-    NormalizedAnnotation, Annotator,
+    Annotator,
+    NormalizedAnnotation,
 )
 
 # Configuration.

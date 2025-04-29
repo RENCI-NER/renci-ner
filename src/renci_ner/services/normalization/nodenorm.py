@@ -10,7 +10,8 @@ import requests
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
-    NormalizedAnnotation, Transformer,
+    NormalizedAnnotation,
+    Transformer,
 )
 
 # Configuration.
