@@ -93,7 +93,6 @@ class NameRes(Annotator):
                 # Since NameRes is normalized to Babel, we can treat it as a NormalizedAnnotation.
                 NormalizedAnnotation(
                     text=text,
-                    curie=result.get("curie", ""),
                     id=result.get("curie", ""),
                     label=result.get("label", ""),
                     biolink_type=result.get("types", ["biolink:NamedThing"])[0],

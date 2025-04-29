@@ -9,6 +9,7 @@ class AnnotationProvenance:
     produced this annotation -- in the future, we might also want to record the properties used in making this
     annotation.
     """
+
     name: str
     url: str
     version: str
@@ -37,7 +38,7 @@ class Annotation:
 
     @property
     def provenances(self) -> list[AnnotationProvenance]:
-        """ Return a list of provenances for this annotation and its based_on annotations. """
+        """Return a list of provenances for this annotation and its based_on annotations."""
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
 
 
@@ -129,7 +130,7 @@ class AnnotatedText:
     """
 
     def __init__(self, text: str, annotations: list[Annotation]) -> None:
-        """ Create an annotated text for a given text and annotations."""
+        """Create an annotated text for a given text and annotations."""
         self.text = text
         self.annotations = annotations
 

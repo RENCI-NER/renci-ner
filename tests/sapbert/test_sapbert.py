@@ -3,7 +3,7 @@ from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 
 
 def test_check():
-    """ Check that BabelSAPBERT can be used to annotate a single word. """
+    """Check that BabelSAPBERT can be used to annotate a single word."""
     sapbert = BabelSAPBERTAnnotator()
     result = sapbert.annotate("brain", {"limit": 11})
     assert result.text == "brain"

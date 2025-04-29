@@ -114,7 +114,7 @@ class NodeNorm(Transformer):
 
             if (
                 isinstance(annotation, NormalizedAnnotation)
-                and result["id"]["identifier"] == annotation.curie
+                and result["id"]["identifier"] == annotation.id
             ):
                 # Already normalized, skip.
                 output_annotations.append(annotation)

@@ -48,7 +48,6 @@ def test_check():
     assert nameres_actin.text == "Actin"
     assert nameres_actin.id == "NCBIGene:71"
     assert nameres_actin.label == "ACTG1"
-    assert nameres_actin.curie == "NCBIGene:71"
     assert nameres_actin.biolink_type == "biolink:Gene"
     assert nameres_actin.provenance == nodenorm.provenance
 
