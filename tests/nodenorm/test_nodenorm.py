@@ -1,6 +1,7 @@
 import pytest
 from requests import HTTPError
 
+from renci_ner.core import AnnotatedText, NormalizedAnnotation, AnnotationProvenance, Annotation
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
@@ -21,7 +22,7 @@ def test_check():
     sapbert = BabelSAPBERTAnnotator()
     nodenorm = NodeNorm()
 
-    text = "Actin in the brain is part of the nervous system."
+    text = "What does actin do?"
     result_nameres = (
         biomegatron.annotate(text)
         .reannotate(nameres, {"limit": 1})
@@ -33,27 +34,173 @@ def test_check():
         .transform(nodenorm, {"geneprotein_conflation": True})
     )
 
-    assert result_nameres.text == text
-    assert result_nameres.text == result_sapbert.text
-    assert len(result_nameres.annotations) == 3
-    assert len(result_nameres.annotations) == len(result_sapbert.annotations)
+    # Check NameRes results.
+    assert result_nameres == AnnotatedText(
+        text,
+        [
+            NormalizedAnnotation(
+                         text='actin',
+             id='NCBIGene:71',
+             label='ACTG1',
+             type='biolink:Gene',
+            biolink_type='biolink:Gene',
+                start=10,
+                end=15,
+                provenance=nodenorm.provenance,
+                based_on=[
+                    Annotation(
+                                                  text='actin',
+                              id='I2-',
+                              label='',
+                              type='biolink:Protein',
+                              start=10,
+                              end=15,
+                              provenance=biomegatron.provenance,
+                              based_on=[],
+                              props={},
+                          ),
+                                  NormalizedAnnotation(
+                                          text='actin',
+                              id='UniProtKB:P63261',
+                              label='ACTG_HUMAN Actin, cytoplasmic 2 (sprot)',
+                              type='biolink:Protein',
+                                      biolink_type='biolink:Protein',
+                              start=10,
+                              end=15,
+                              provenance=AnnotationProvenance(
+                                                 name='NameRes',
+                                             url='https://name-resolution-sri.renci.org',
+                                             version='1.4.7',
+                                         ),
+                              based_on=[
+                                               Annotation(
+                                                       text='actin',
+                                               id='I2-',
+                                               label='',
+                                               type='biolink:Protein',
+                                               start=10,
+                                               end=15,
+                                               provenance=AnnotationProvenance(
+                                                                  name='BioMegatron',
+                                                              url='https://med-nemo.apps.renci.org',
+                                                              version='0.1.0',
+                                                          ),
+                                               based_on=[],
+                                               props={},
+                                           ),
+                                       ],
+                              props={
+                                            'clique_identifier_count': 63,
+                                            'highlighting': {},
+                                            'ic': None,
+                                            'score': 16.23857,
+                                            'synonyms': [
+                                                    'ACTG',
+                                                    'ACTG1',
+                                                    'hACTG1',
+                                                    'Gamma-Actin',
+                                                    'gamma-actin (human)',
+                                                    'Actin, Cytoplasmic 2',
+                                                    'ACTG1 protein, human',
+                                                    'Cytoskeletal Gamma-Actin',
+                                                    'actin, cytoplasmic 2 (human)',
+                                                    'Epididymis Luminal Protein 176',
+                                                    'ACTG_HUMAN Actin, cytoplasmic 2 '
+                                                    '(sprot)',
+                                                ],
+                                            'taxa': [
+                                                    'NCBITaxon:9606',
+                                                ],
+                                            'types': [
+                                                    'biolink:Gene',
+                                                    'biolink:GeneOrGeneProduct',
+                                                    'biolink:GenomicEntity',
+                                                    'biolink:ChemicalEntityOrGeneOrGeneProduct',
+                                                    'biolink:PhysicalEssence',
+                                                    'biolink:OntologyClass',
+                                                    'biolink:BiologicalEntity',
+                                                    'biolink:ThingWithTaxon',
+                                                    'biolink:NamedThing',
+                                                    'biolink:PhysicalEssenceOrOccurrent',
+                                                    'biolink:MacromolecularMachineMixin',
+                                                    'biolink:Protein',
+                                                    'biolink:GeneProductMixin',
+                                                    'biolink:Polypeptide',
+                                                    'biolink:ChemicalEntityOrProteinOrPolypeptide',
+                                                ],
+                                        })
+                                      ],
+                         props={
+                           'clique_identifier_count': 63,
+                           'highlighting': {},
+                           'ic': None,
+                           'score': 16.23857,
+                           'synonyms': [
+                                   'ACTG',
+                                   'ACTG1',
+                                   'hACTG1',
+                                   'Gamma-Actin',
+                                   'gamma-actin (human)',
+                                   'Actin, Cytoplasmic 2',
+                                   'ACTG1 protein, human',
+                                   'Cytoskeletal Gamma-Actin',
+                                   'actin, cytoplasmic 2 (human)',
+                                   'Epididymis Luminal Protein 176',
+                                   'ACTG_HUMAN Actin, cytoplasmic 2 (sprot)',
+                               ],
+                           'taxa': [
+                                   'NCBITaxon:9606',
+                               ],
+                           'types': [
+                                   'biolink:Gene',
+                                   'biolink:GeneOrGeneProduct',
+                                   'biolink:GenomicEntity',
+                                   'biolink:ChemicalEntityOrGeneOrGeneProduct',
+                                   'biolink:PhysicalEssence',
+                                   'biolink:OntologyClass',
+                                   'biolink:BiologicalEntity',
+                                   'biolink:ThingWithTaxon',
+                                   'biolink:NamedThing',
+                                   'biolink:PhysicalEssenceOrOccurrent',
+                                   'biolink:MacromolecularMachineMixin',
+                                   'biolink:Protein',
+                                   'biolink:GeneProductMixin',
+                                   'biolink:Polypeptide',
+                                   'biolink:ChemicalEntityOrProteinOrPolypeptide',
+                               ],
+                       },
+            )
 
-    # Let's look at the actin annotation in more detail.
-    nameres_actin = result_nameres.annotations[0]
-    sapbert_actin = result_sapbert.annotations[0]
+    ]
+    )
 
-    # NameRes returns
-    assert nameres_actin.based_on[-1].id == "UniProtKB:P63261"
-    assert nameres_actin.based_on[-1].label == "ACTG_HUMAN Actin, cytoplasmic 2 (sprot)"
-    assert nameres_actin.text == "Actin"
-    assert nameres_actin.id == "NCBIGene:71"
-    assert nameres_actin.label == "ACTG1"
-    assert nameres_actin.biolink_type == "biolink:Gene"
-    assert nameres_actin.provenance == nodenorm.provenance
-
-    # SAPBERT returns ACTIN (PANTHER.FAMILY:PTHR11937), which normalizes to itself,
-    # so effectively no normalization appears to have occurred.
-    assert sapbert_actin.label == "ACTIN"
-    assert sapbert_actin.id == "PANTHER.FAMILY:PTHR11937"
-    assert sapbert_actin.biolink_type == "biolink:GeneFamily"
-    assert sapbert_actin.provenance == sapbert.provenance
+    # Check SAPBERT results.
+    assert result_sapbert == AnnotatedText(
+        text,
+        [
+            NormalizedAnnotation(
+                text='actin',
+                id='PANTHER.FAMILY:PTHR11937',
+                label='ACTIN',
+                type='biolink:GeneFamily',
+                biolink_type='biolink:GeneFamily',
+                start=10,
+                end=15,
+                provenance=sapbert.provenance,
+                based_on=[
+                    Annotation(
+                        text='actin',
+                        id='I2-',
+                        label='',
+                        start=10,
+                        end=15,
+                        provenance=biomegatron.provenance,
+                        type='biolink:Protein',
+                    )
+                ],
+                props={
+                    'score': 0.9999999,
+                }
+            )
+        ]
+    )
