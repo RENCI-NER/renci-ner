@@ -160,7 +160,7 @@ AnnotatedText allows annotators to be chained: for example, you can use BioMegat
 to identify biomedical concepts in a text, then use NameRes or BabelSAPBERT to link those
 identifiers to biomedical identifiers.
 
-e.g. BioMegatron, NameRes, BabelSAPBERT
+e.g. BioMegatron -> NameRes, BioMegatron -> BabelSAPBERT
 
 ### Transformer
 
