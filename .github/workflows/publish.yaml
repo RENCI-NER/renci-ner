@@ -19,6 +19,9 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Build the project
+        run: uv build
+
       - name: Install the project
         run: uv sync --all-extras --dev
 
