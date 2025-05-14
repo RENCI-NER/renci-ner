@@ -74,7 +74,7 @@ class NodeNorm(Transformer):
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
-        ids = list(map(lambda a: a.id, annotated_text.annotations))
+        ids = list(set(map(lambda a: a.id, annotated_text.annotations)))
 
         response = session.post(
             self.get_normalized_nodes_url,
