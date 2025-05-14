@@ -24,18 +24,19 @@ class BioMegatron(Annotator):
             name="BioMegatron", url=RENCI_BIOMEGATRON_URL, version=self.openapi_version
         )
 
-    def __init__(self, url=RENCI_BIOMEGATRON_URL, requests_session=requests.Session()):
+    def __init__(self, url=RENCI_BIOMEGATRON_URL, requests_session=requests.Session(), timeout=120):
         """
         Set up a BioMegatron service.
 
         :param url: The URL of the BioMegatron service.
         :param requests_session: A Requests session object to use instead of the default one.
+        :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
         self.url = url
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session
 
-        result = self.requests_session.get(self.url + "/openapi.json")
+        result = self.requests_session.get(self.url + "/openapi.json", timeout=timeout)
         result.raise_for_status()
         openapi_data = result.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(

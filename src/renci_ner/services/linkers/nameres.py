@@ -28,18 +28,19 @@ class NameRes(Annotator):
             name="NameRes", url=RENCI_NAMERES_URL, version=self.openapi_version
         )
 
-    def __init__(self, url=RENCI_NAMERES_URL, requests_session=requests.Session()):
+    def __init__(self, url=RENCI_NAMERES_URL, requests_session=requests.Session(), timeout=120):
         """
         Set up a NameRes service.
 
         :param url: The URL of the NameRes service.
         :param requests_session: A Requests session object to use instead of the default one.
+        :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
         self.url = url
         self.lookup_url = url + "/lookup"
         self.requests_session = requests_session
 
-        response = self.requests_session.get(self.url + "/openapi.json")
+        response = self.requests_session.get(self.url + "/openapi.json", timeout=120)
         response.raise_for_status()
         openapi_data = response.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
@@ -49,6 +50,7 @@ class NameRes(Annotator):
     def supported_properties(self):
         """Configurable properties for NameRes."""
         return {
+            "timeout": "(int, default: 120) The timeout in seconds for requests to NameRes.",
             "autocomplete": "(true/false, default: false) Whether to search for incomplete words (e.g. 'bra' for brain).",
             "limit": "(int, default: 10) The number of results to return.",
             "highlighting": "(true/false, default: false) Whether to return lists of the names and synonyms matched by the query.",
@@ -68,7 +70,9 @@ class NameRes(Annotator):
         """
         if props is None:
             props = {}
+
         session = self.requests_session
+        timeout = props.get("timeout", 120)
 
         response = session.get(
             self.lookup_url,
@@ -82,6 +86,7 @@ class NameRes(Annotator):
                 "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
                 "only_taxa": "|".join(props.get("only_taxa", [])),
             },
+            timeout=timeout,
         )
 
         response.raise_for_status()
