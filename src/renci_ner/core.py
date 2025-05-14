@@ -133,7 +133,7 @@ class AnnotatedText:
     text: str
     annotations: list[Annotation] = field(default_factory=list)
 
-    def transform(self, transformer: "Transformer", props:dict=None) -> Self:
+    def transform(self, transformer: "Transformer", props: dict = None) -> Self:
         """
         Transform the annotations in this AnnotatedText with a transformer.
 
@@ -148,7 +148,7 @@ class AnnotatedText:
 
         return transformer.transform(self, props)
 
-    def reannotate(self, annotator: "Annotator", props:dict=None) -> Self:
+    def reannotate(self, annotator: "Annotator", props: dict = None) -> Self:
         """
         Reannotate the annotations in this AnnotatedText with another annotator.
 
@@ -218,7 +218,7 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props:dict=None) -> AnnotatedText:
+    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`.
@@ -253,7 +253,9 @@ class Transformer:
         """
         return {}
 
-    def transform(self, annotated_text: AnnotatedText, props:dict=None) -> AnnotatedText:
+    def transform(
+        self, annotated_text: AnnotatedText, props: dict = None
+    ) -> AnnotatedText:
         """
         Transform an annotated text into a new annotated text.
 

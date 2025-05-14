@@ -24,7 +24,12 @@ class BioMegatron(Annotator):
             name="BioMegatron", url=RENCI_BIOMEGATRON_URL, version=self.openapi_version
         )
 
-    def __init__(self, url=RENCI_BIOMEGATRON_URL, requests_session=requests.Session(), timeout=120):
+    def __init__(
+        self,
+        url=RENCI_BIOMEGATRON_URL,
+        requests_session=requests.Session(),
+        timeout=120,
+    ):
         """
         Set up a BioMegatron service.
 
@@ -49,7 +54,7 @@ class BioMegatron(Annotator):
             "timeout": "The timeout in seconds for requests to BioMegatron. Default: 120 seconds."
         }
 
-    def annotate(self, text:str, props:dict=None) -> AnnotatedText:
+    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
         """
         Annotate text using BioMegatron.
 

@@ -40,10 +40,10 @@ def test_check():
     )
 
     # Check NameRes results.
-    del result_nameres.annotations[0].props['clique_identifier_count']
-    del result_nameres.annotations[0].props['score']
-    del result_nameres.annotations[0].props['ic']
-    del result_nameres.annotations[0].props['synonyms']
+    del result_nameres.annotations[0].props["clique_identifier_count"]
+    del result_nameres.annotations[0].props["score"]
+    del result_nameres.annotations[0].props["ic"]
+    del result_nameres.annotations[0].props["synonyms"]
 
     assert result_nameres == AnnotatedText(
         text,
@@ -144,7 +144,7 @@ def test_check():
     )
 
     # Check SAPBERT results.
-    del result_sapbert.annotations[0].props['score']
+    del result_sapbert.annotations[0].props["score"]
 
     assert result_sapbert == AnnotatedText(
         text,

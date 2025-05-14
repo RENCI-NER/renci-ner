@@ -28,7 +28,9 @@ class NameRes(Annotator):
             name="NameRes", url=RENCI_NAMERES_URL, version=self.openapi_version
         )
 
-    def __init__(self, url=RENCI_NAMERES_URL, requests_session=requests.Session(), timeout=120):
+    def __init__(
+        self, url=RENCI_NAMERES_URL, requests_session=requests.Session(), timeout=120
+    ):
         """
         Set up a NameRes service.
 
@@ -92,27 +94,28 @@ class NameRes(Annotator):
         response.raise_for_status()
         results = response.json()
 
-        annotations = [NormalizedAnnotation(
-                    text=text,
-                    id=result.get("curie", ""),
-                    label=result.get("label", ""),
-                    biolink_type=result.get("types", ["biolink:NamedThing"])[0],
-                    type=result.get("types", ["biolink:NamedThing"])[0],
-                    props={
-                        "score": result.get("score", 0),
-                        "clique_identifier_count": result.get(
-                            "clique_identifier_count", 0
-                        ),
-                        "synonyms": result.get("synonyms", []),
-                        "highlighting": result.get("highlighting", {}),
-                        "types": result.get("types", []),
-                        "taxa": result.get("taxa", []),
-                    },
-                    provenance=self.provenance,
-                    # Since we're using the whole text, let's just use that
-                    # as the start/end.
-                    start=0,
-                    end=len(text),
-                ) for result in results]
+        annotations = [
+            NormalizedAnnotation(
+                text=text,
+                id=result.get("curie", ""),
+                label=result.get("label", ""),
+                biolink_type=result.get("types", ["biolink:NamedThing"])[0],
+                type=result.get("types", ["biolink:NamedThing"])[0],
+                props={
+                    "score": result.get("score", 0),
+                    "clique_identifier_count": result.get("clique_identifier_count", 0),
+                    "synonyms": result.get("synonyms", []),
+                    "highlighting": result.get("highlighting", {}),
+                    "types": result.get("types", []),
+                    "taxa": result.get("taxa", []),
+                },
+                provenance=self.provenance,
+                # Since we're using the whole text, let's just use that
+                # as the start/end.
+                start=0,
+                end=len(text),
+            )
+            for result in results
+        ]
 
         return AnnotatedText(text, annotations)

@@ -52,12 +52,12 @@ def test_multiple_annotators():
     )
 
     # Check the results. We need to delete some properties that are likely to change often.
-    del result_nameres.annotations[0].props['clique_identifier_count']
-    del result_nameres.annotations[0].props['score']
-    del result_nameres.annotations[0].props['synonyms']
-    del result_nameres.annotations[1].props['clique_identifier_count']
-    del result_nameres.annotations[1].props['score']
-    del result_nameres.annotations[1].props['synonyms']
+    del result_nameres.annotations[0].props["clique_identifier_count"]
+    del result_nameres.annotations[0].props["score"]
+    del result_nameres.annotations[0].props["synonyms"]
+    del result_nameres.annotations[1].props["clique_identifier_count"]
+    del result_nameres.annotations[1].props["score"]
+    del result_nameres.annotations[1].props["synonyms"]
 
     assert result_nameres == AnnotatedText(
         "The brain is part of the nervous system.",

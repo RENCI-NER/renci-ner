@@ -29,7 +29,9 @@ class BabelSAPBERTAnnotator(Annotator):
             name="BabelSAPBERT", url=RENCI_SAPBERT_URL, version=self.openapi_version
         )
 
-    def __init__(self, url=RENCI_SAPBERT_URL, requests_session=requests.Session(), timeout=120):
+    def __init__(
+        self, url=RENCI_SAPBERT_URL, requests_session=requests.Session(), timeout=120
+    ):
         """
         Set up a SAPBERT service.
 
@@ -41,7 +43,9 @@ class BabelSAPBERTAnnotator(Annotator):
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session
 
-        response = self.requests_session.get(self.url + "/openapi.json", timeout=timeout)
+        response = self.requests_session.get(
+            self.url + "/openapi.json", timeout=timeout
+        )
         response.raise_for_status()
         openapi_data = response.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
