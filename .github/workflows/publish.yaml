@@ -8,8 +8,14 @@ on:
       - released
 
 jobs:
-  build:
+  publish:
+    name: Publish renci-ner to PyPI
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      # For PyPI's trusted publishing.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -21,9 +27,6 @@ jobs:
 
       - name: Build the project
         run: uv build
-
-      - name: Install the project
-        run: uv sync --all-extras --dev
 
       - name: Publish to PyPI
         run: uv publish
