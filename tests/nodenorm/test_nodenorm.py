@@ -40,6 +40,11 @@ def test_check():
     )
 
     # Check NameRes results.
+    del result_nameres.annotations[0].props['clique_identifier_count']
+    del result_nameres.annotations[0].props['score']
+    del result_nameres.annotations[0].props['ic']
+    del result_nameres.annotations[0].props['synonyms']
+
     assert result_nameres == AnnotatedText(
         text,
         [
@@ -72,11 +77,7 @@ def test_check():
                         biolink_type="biolink:Protein",
                         start=10,
                         end=15,
-                        provenance=AnnotationProvenance(
-                            name="NameRes",
-                            url="https://name-resolution-sri.renci.org",
-                            version="1.4.7",
-                        ),
+                        provenance=nameres.provenance,
                         based_on=[
                             Annotation(
                                 text="actin",
@@ -85,33 +86,13 @@ def test_check():
                                 type="biolink:Protein",
                                 start=10,
                                 end=15,
-                                provenance=AnnotationProvenance(
-                                    name="BioMegatron",
-                                    url="https://med-nemo.apps.renci.org",
-                                    version="0.1.0",
-                                ),
+                                provenance=biomegatron.provenance,
                                 based_on=[],
                                 props={},
                             ),
                         ],
                         props={
-                            "clique_identifier_count": 63,
                             "highlighting": {},
-                            "ic": None,
-                            "score": 16.23857,
-                            "synonyms": [
-                                "ACTG",
-                                "ACTG1",
-                                "hACTG1",
-                                "Gamma-Actin",
-                                "gamma-actin (human)",
-                                "Actin, Cytoplasmic 2",
-                                "ACTG1 protein, human",
-                                "Cytoskeletal Gamma-Actin",
-                                "actin, cytoplasmic 2 (human)",
-                                "Epididymis Luminal Protein 176",
-                                "ACTG_HUMAN Actin, cytoplasmic 2 (sprot)",
-                            ],
                             "taxa": [
                                 "NCBITaxon:9606",
                             ],
@@ -136,23 +117,7 @@ def test_check():
                     ),
                 ],
                 props={
-                    "clique_identifier_count": 63,
                     "highlighting": {},
-                    "ic": None,
-                    "score": 16.23857,
-                    "synonyms": [
-                        "ACTG",
-                        "ACTG1",
-                        "hACTG1",
-                        "Gamma-Actin",
-                        "gamma-actin (human)",
-                        "Actin, Cytoplasmic 2",
-                        "ACTG1 protein, human",
-                        "Cytoskeletal Gamma-Actin",
-                        "actin, cytoplasmic 2 (human)",
-                        "Epididymis Luminal Protein 176",
-                        "ACTG_HUMAN Actin, cytoplasmic 2 (sprot)",
-                    ],
                     "taxa": [
                         "NCBITaxon:9606",
                     ],
@@ -179,6 +144,8 @@ def test_check():
     )
 
     # Check SAPBERT results.
+    del result_sapbert.annotations[0].props['score']
+
     assert result_sapbert == AnnotatedText(
         text,
         [
@@ -202,9 +169,7 @@ def test_check():
                         type="biolink:Protein",
                     )
                 ],
-                props={
-                    "score": 0.9999999,
-                },
+                props={},
             )
         ],
     )

@@ -51,8 +51,14 @@ def test_multiple_annotators():
         == "nervous system"
     )
 
-    # Check the based_on.
-    # We may need to remove the scores later to avoid doing a float conversion.
+    # Check the results. We need to delete some properties that are likely to change often.
+    del result_nameres.annotations[0].props['clique_identifier_count']
+    del result_nameres.annotations[0].props['score']
+    del result_nameres.annotations[0].props['synonyms']
+    del result_nameres.annotations[1].props['clique_identifier_count']
+    del result_nameres.annotations[1].props['score']
+    del result_nameres.annotations[1].props['synonyms']
+
     assert result_nameres == AnnotatedText(
         "The brain is part of the nervous system.",
         [
@@ -79,37 +85,7 @@ def test_multiple_annotators():
                     )
                 ],
                 props={
-                    "clique_identifier_count": 5,
                     "highlighting": {},
-                    "score": 99.086334,
-                    "synonyms": [
-                        "Br",
-                        "BRA",
-                        "brain",
-                        "Brain",
-                        "BRAIN",
-                        "brains",
-                        "Cerebral",
-                        "cerebral",
-                        "CNS-Brain",
-                        "the brain",
-                        "encephalon",
-                        "Encephalon",
-                        "Brain, NOS",
-                        "human brain",
-                        "synganglion",
-                        "Entire brain",
-                        "Brain structure",
-                        "brain structure",
-                        "vertebrate brain",
-                        "Entire encephalon",
-                        "Structure of brain",
-                        "Nervous System, Brain",
-                        "suprasegmental structures",
-                        "Entire brain (body structure)",
-                        "Brain structure (body structure)",
-                        "suprasegmental levels of nervous system",
-                    ],
                     "taxa": [],
                     "types": [
                         "biolink:GrossAnatomicalStructure",
@@ -148,35 +124,7 @@ def test_multiple_annotators():
                     )
                 ],
                 props={
-                    "clique_identifier_count": 8,
                     "highlighting": {},
-                    "score": 137.36043,
-                    "synonyms": [
-                        "nerve net",
-                        "Neurologic",
-                        "Nervous System",
-                        "Nervous system",
-                        "nervous system",
-                        "Nervous Systems",
-                        "nervous systems",
-                        "System, Nervous",
-                        "systema nervosum",
-                        "Systems, Nervous",
-                        "Systema nervosum",
-                        "neurologic system",
-                        "Neurologic system",
-                        "neurologic systems",
-                        "NS - Nervous system",
-                        "Nervous system, NOS",
-                        "neurological system",
-                        "Neurologic Body System",
-                        "Neurologic Organ System",
-                        "Body System, Neurologic",
-                        "Nervous system structure",
-                        "Organ System, Neurologic",
-                        "Structure of nervous system",
-                        "Structure of nervous system (body structure)",
-                    ],
                     "taxa": [],
                     "types": [
                         "biolink:AnatomicalEntity",
