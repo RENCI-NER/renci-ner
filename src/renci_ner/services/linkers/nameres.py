@@ -92,11 +92,7 @@ class NameRes(Annotator):
         response.raise_for_status()
         results = response.json()
 
-        annotations = []
-        for result in results:
-            annotations.append(
-                # Since NameRes is normalized to Babel, we can treat it as a NormalizedAnnotation.
-                NormalizedAnnotation(
+        annotations = [NormalizedAnnotation(
                     text=text,
                     id=result.get("curie", ""),
                     label=result.get("label", ""),
@@ -117,7 +113,6 @@ class NameRes(Annotator):
                     # as the start/end.
                     start=0,
                     end=len(text),
-                )
-            )
+                ) for result in results]
 
         return AnnotatedText(text, annotations)
