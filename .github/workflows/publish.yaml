@@ -3,8 +3,6 @@
 name: Publish to PyPI (https://pypi.org/project/renci-ner/)
 on:
   release:
-    types:
-      - released
 
 jobs:
   publish:
