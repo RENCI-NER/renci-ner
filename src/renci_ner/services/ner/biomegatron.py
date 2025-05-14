@@ -35,7 +35,7 @@ class BioMegatron(Annotator):
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session
 
-        result = requests.get(self.url + "/openapi.json")
+        result = self.requests_session.get(self.url + "/openapi.json")
         result.raise_for_status()
         openapi_data = result.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
