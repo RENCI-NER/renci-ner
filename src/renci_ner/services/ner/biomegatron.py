@@ -45,7 +45,9 @@ class BioMegatron(Annotator):
 
     def supported_properties(self):
         """Some configurable parameters for BioMegatron (none at present)."""
-        return {}
+        return {
+            "timeout": "The timeout in seconds for requests to BioMegatron. Default: 120 seconds."
+        }
 
     def annotate(self, text:str, props:dict=None) -> AnnotatedText:
         """
@@ -60,6 +62,7 @@ class BioMegatron(Annotator):
             props = {}
 
         session = self.requests_session
+        timeout = props.get("timeout", 120)
 
         response = session.post(
             self.annotate_url,
@@ -67,6 +70,7 @@ class BioMegatron(Annotator):
                 "text": text,
                 "model_name": "token_classification",
             },
+            timeout=timeout,
         )
 
         response.raise_for_status()

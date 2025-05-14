@@ -52,6 +52,7 @@ class NodeNorm(Transformer):
     def supported_properties(self):
         """Some configurable parameters."""
         return {
+            "timeout": "The timeout in seconds for requests to NodeNorm. Default: 120 seconds.",
             "geneprotein_conflation": "(true/false, default: true) Whether to conflate gene and protein identifiers.",
             "drugchemical_conflation": "(true/false, default: false) Whether to conflate drug and chemical identifiers.",
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
@@ -69,7 +70,9 @@ class NodeNorm(Transformer):
         """
         if props is None:
             props = {}
+
         session = self.requests_session
+        timeout = props.get("timeout", 120)
 
         ids = list(map(lambda a: a.id, annotated_text.annotations))
 
@@ -85,6 +88,7 @@ class NodeNorm(Transformer):
                 else "false",
                 "description": "true" if props.get("description", False) else "false",
             },
+            timeout=timeout,
         )
         if response.status_code != 200:
             # raise Exception(f"NodeNorm returned status code {response.status_code}")

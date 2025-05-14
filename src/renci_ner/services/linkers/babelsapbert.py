@@ -51,6 +51,7 @@ class BabelSAPBERTAnnotator(Annotator):
     def supported_properties(self):
         """Configurable properties for SAPBERT."""
         return {
+            "timeout": "The timeout in seconds for requests to SAPBERT. Default: 120 seconds.",
             "limit": "The maximum number of results to return.",
             "score": "The minimum score for this result returned by SAPBERT (higher is better).",
         }
@@ -65,7 +66,9 @@ class BabelSAPBERTAnnotator(Annotator):
         """
         if props is None:
             props = {}
+
         session = self.requests_session
+        timeout = props.get("timeout", 120)
 
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
@@ -77,6 +80,7 @@ class BabelSAPBERTAnnotator(Annotator):
                 "model_name": "sapbert",
                 "count": limit,
             },
+            timeout=timeout,
         )
 
         response.raise_for_status()
