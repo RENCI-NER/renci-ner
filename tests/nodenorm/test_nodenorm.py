@@ -4,7 +4,6 @@ from requests import HTTPError
 from renci_ner.core import (
     AnnotatedText,
     NormalizedAnnotation,
-    AnnotationProvenance,
     Annotation,
 )
 from renci_ner.services.linkers.nameres import NameRes
