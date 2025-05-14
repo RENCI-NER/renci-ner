@@ -147,7 +147,7 @@ class AnnotatedText:
             props = {}
         return transformer.transform(self, props)
 
-    def reannotate(self, annotator: "Annotator", props: dict = {}) -> Self:
+    def reannotate(self, annotator: "Annotator", props:dict=None) -> Self:
         """
         Reannotate the annotations in this AnnotatedText with another annotator.
 
@@ -164,6 +164,9 @@ class AnnotatedText:
         :param props: A dictionary of properties to pass to the annotator.
         :return: AnnotatedText with annotations re-annotated with the other annotator.
         """
+
+        if props is None:
+            props = {}
 
         new_annotations = []
         for annotation in self.annotations:
@@ -249,7 +252,7 @@ class Transformer:
         """
         return {}
 
-    def transform(self, annotated_text: AnnotatedText, props={}) -> AnnotatedText:
+    def transform(self, annotated_text: AnnotatedText, props:dict=None) -> AnnotatedText:
         """
         Transform an annotated text into a new annotated text.
 
