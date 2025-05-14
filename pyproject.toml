@@ -1,0 +1,33 @@
+[project]
+name = "renci-ner"
+version = "1.0.0"
+description = "A library for accessing RENCI NER services."
+readme = "README.md"
+authors = [
+    { name = "Gaurav Vaidya", email = "gaurav@renci.org" }
+]
+keywords = ['biomedical', 'ner', 'nlp', 'named entity recognition', 'natural language processing', 'named entity linking']
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "ruff>=0.11.0",
+]
