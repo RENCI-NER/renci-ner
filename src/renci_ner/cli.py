@@ -1,10 +1,8 @@
 import csv
 
-import requests
-
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.linkers.nameres import NameRes
-from renci_ner.services.linkers.sapbert import SAPBERTAnnotator
+from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
 import click
@@ -90,7 +88,7 @@ def renci_ner(
             sapbert_annotations = (
                 BioMegatron()
                 .annotate(text)
-                .annotate_annotations_with(SAPBERTAnnotator(), {"limit": ner_limit})
+                .reannotate(BabelSAPBERTAnnotator(), {"limit": ner_limit})
             )
             return NodeNorm().transform(sapbert_annotations)
     elif method == "biomegatron-nameres":
@@ -99,7 +97,7 @@ def renci_ner(
             return (
                 BioMegatron()
                 .annotate(text)
-                .annotate_annotations_with(NameRes(), {"limit": ner_limit})
+                .reannotate(NameRes(), {"limit": ner_limit})
             )
     else:
         raise ValueError(f"Unsupported method: {method}")
@@ -135,7 +133,7 @@ def renci_ner(
                 writer = (
                     csv.DictWriter(outputf, dialect="excel", fieldnames=output_fields)
                     if output_format == "csv"
-                    else csv.writer(
+                    else csv.DictWriter(
                         outputf, dialect="excel_tab", fieldnames=output_fields
                     )
                 )
@@ -164,15 +162,15 @@ def renci_ner(
                             output_row = dict(map(lambda x: (x, ""), row.keys()))
 
                         if (not allow_duplicate_ids) and (
-                            annotation.curie in annotation_ids
+                            annotation.id in annotation_ids
                         ):
                             continue
-                        annotation_ids.add(annotation.curie)
+                        annotation_ids.add(annotation.id)
 
                         output_row["ner_text"] = annotation.text
                         output_row["ner_label"] = annotation.label
-                        output_row["ner_curie"] = annotation.curie
-                        output_row["ner_biolink_type"] = annotation.biolink_type
+                        output_row["ner_curie"] = annotation.id
+                        output_row["ner_biolink_type"] = annotation.type
                         writer.writerow(output_row)
 
                         logging.info(
