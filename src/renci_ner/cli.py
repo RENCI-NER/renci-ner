@@ -10,6 +10,25 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+# HELPER FUNCTIONS
+
+def get_novel_column_name(new_column: str, old_columns: list):
+    """
+    Given a list of old columns, find a version of $new_column that
+    doesn't already exist, and return that.
+
+    :param new_column: The new column to add.
+    :param old_columns: The existing columns in this file.
+    :return: The new column name, which will not exist in the existing columns.
+    """
+    old_columns_set = set(old_columns)
+    new_column_name = new_column
+    index = 0
+    while new_column_name in old_columns_set:
+        index += 1
+        new_column_name = f"{new_column}_{index}"
+    return new_column_name
+
 
 @click.command
 @click.argument(
@@ -29,13 +48,13 @@ logging.basicConfig(level=logging.INFO)
 )
 @click.option(
     "--output",
-    "-O",
+    "-o",
     type=click.Path(exists=False, file_okay=True, dir_okay=False),
     default="-",
     help="Output file",
 )
 @click.option(
-    "--output-format",
+    "--output-format", "-f",
     type=click.Choice(["csv", "tsv"]),
     default="csv",
     help="Output format",
@@ -68,10 +87,10 @@ def renci_ner(
     """
     A CLI for the RENCI NER.
 
-    :param input_file: The input file or directory to read. We guess the file type using the extension.
+    :param input_files: The input files or directories to read. We guess the file type using the extension.
     :param column: The column to use for the NER. If none is specified, every column will be used.
     :param method: The NER method to use. Limited for now, will be quite expansive later.
-    :param output_file: The output file to write to. Defaults to STDOUT.
+    :param output: The output file to write to. Defaults to STDOUT.
     :param output_format: The output format to write to.
     :param ner_limit: The maximum number of results per annotation.
     :param duplicate_data: Whether to duplicate the data in the output.
@@ -111,6 +130,8 @@ def renci_ner(
             else:
                 raise ValueError(f"Unsupported file type: {input_filename}")
 
+            # If no `--column` arguments were given on the command line,
+            # fall back to use every column in the file.
             if len(columns) == 0:
                 columns = reader.fieldnames
                 if len(columns) == 0:
@@ -120,13 +141,21 @@ def renci_ner(
                     f"No columns specified, using all columns:\n{column_list}"
                 )
 
-            # Prepare the write the output.
+            # Prepare to write the output.
             with open(output_filename, "w") as outputf:
-                output_fields = list(reader.fieldnames) + [
-                    "ner_text",
-                    "ner_label",
-                    "ner_curie",
-                    "ner_biolink_type",
+                old_columns = list(reader.fieldnames)
+
+                # Make sure our new columns don't overlap with existing columns.
+                ner_text_column = get_novel_column_name("ner_text", old_columns)
+                ner_label_column = get_novel_column_name("ner_label", old_columns)
+                ner_curie_column = get_novel_column_name("ner_curie", old_columns)
+                ner_biolink_type_column = get_novel_column_name("ner_biolink_type", old_columns)
+
+                output_fields = old_columns + [
+                    ner_text_column,
+                    ner_label_column,
+                    ner_curie_column,
+                    ner_biolink_type_column
                 ]
                 writer = (
                     csv.DictWriter(outputf, dialect="excel", fieldnames=output_fields)
@@ -165,14 +194,14 @@ def renci_ner(
                             continue
                         annotation_ids.add(annotation.id)
 
-                        output_row["ner_text"] = annotation.text
-                        output_row["ner_label"] = annotation.label
-                        output_row["ner_curie"] = annotation.id
-                        output_row["ner_biolink_type"] = annotation.type
+                        output_row[ner_text_column] = annotation.text
+                        output_row[ner_label_column] = annotation.label
+                        output_row[ner_curie_column] = annotation.id
+                        output_row[ner_biolink_type_column] = annotation.type
                         writer.writerow(output_row)
 
                         logging.info(
-                            f" - Annotation: '{annotation.text}' annotated as {annotation.curie} '{annotation.label}' (type {annotation.biolink_type})"
+                            f" - Annotation: '{annotation.text}' annotated as {annotation.id} '{annotation.label}' (type {annotation.type})"
                         )
 
                     logging.info("")
