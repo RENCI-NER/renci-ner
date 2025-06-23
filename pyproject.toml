@@ -32,3 +32,6 @@ dev = [
     "pytest>=8.3.5",
     "ruff>=0.11.0",
 ]
+
+[project.scripts]
+renci-ner = "renci_ner.cli:renci_ner"
