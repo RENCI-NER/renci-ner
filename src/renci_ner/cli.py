@@ -95,9 +95,7 @@ def renci_ner(
 
         def ner_method(text):
             return (
-                BioMegatron()
-                .annotate(text)
-                .reannotate(NameRes(), {"limit": ner_limit})
+                BioMegatron().annotate(text).reannotate(NameRes(), {"limit": ner_limit})
             )
     else:
         raise ValueError(f"Unsupported method: {method}")
