@@ -116,6 +116,7 @@ def renci_ner(
             return (
                 BioMegatron().annotate(text).reannotate(NameRes(), {"limit": ner_limit})
             )
+
     else:
         raise ValueError(f"Unsupported method: {method}")
 
@@ -168,9 +169,14 @@ def renci_ner(
 
                 for row in reader:
                     logging.info(f"Processing row: {row}")
+
                     ner_text = "\n".join(
                         [row[column] for column in columns if row[column].strip() != ""]
                     )
+
+                    if ner_text.strip() == "":
+                        writer.writerow(row)
+                        continue
 
                     annotation_ids = set()
 
