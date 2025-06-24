@@ -80,6 +80,10 @@ class NodeNorm(Transformer):
 
         ids = list(set(map(lambda a: a.id, annotated_text.annotations)))
 
+        if len(ids) == 0:
+            logging.debug(f"No identifiers to normalize for {annotated_text}")
+            return annotated_text
+
         response = session.post(
             self.get_normalized_nodes_url,
             json={
