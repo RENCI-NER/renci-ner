@@ -134,6 +134,8 @@ class BagelAnnotator(Annotator):
                         "entity_type": entity_type,
                         # "color_code": selected_color,
                         # TODO: implement taxa
+                        #   - Should include this for genes and proteins for NameRes
+                        #   - Might be worth putting in a default, but probably not needed.
                         "taxa": "",
                         "taxa_ids": [],
                     })
