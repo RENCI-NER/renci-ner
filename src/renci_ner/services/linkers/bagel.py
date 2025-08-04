@@ -132,7 +132,7 @@ class BagelAnnotator(Annotator):
                         "identifier": result_ann.id,
                         "description": description,
                         "entity_type": entity_type,
-                        "color_code": selected_color,
+                        # "color_code": selected_color,
                         # TODO: implement taxa
                         "taxa": "",
                         "taxa_ids": [],
