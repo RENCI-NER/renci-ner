@@ -16,7 +16,7 @@ from renci_ner.core import (
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
-
+NODENORM_DEFAULT_TIMEOUT = 120
 
 class NodeNorm(Transformer):
     """
@@ -56,11 +56,47 @@ class NodeNorm(Transformer):
     def supported_properties(self):
         """Some configurable parameters."""
         return {
-            "timeout": "The timeout in seconds for requests to NodeNorm. Default: 120 seconds.",
+            "timeout": f"The timeout in seconds for requests to NodeNorm. Default: ${NODENORM_DEFAULT_TIMEOUT} seconds.",
             "geneprotein_conflation": "(true/false, default: true) Whether to conflate gene and protein identifiers.",
             "drugchemical_conflation": "(true/false, default: false) Whether to conflate drug and chemical identifiers.",
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
         }
+
+    def normalize(self, identifiers, props=None):
+        """
+        Normalize a list of identifiers using NodeNorm.
+
+        :param identifiers: A list of identifiers to normalize.
+        :param props: Properties to use when normalizing. See supported_properties.
+        :return: Output from NodeNorm.
+        """
+        if props is None:
+            props = {}
+        session = self.requests_session
+        timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
+
+        response = session.post(
+            self.get_normalized_nodes_url,
+            json={
+                "curies": identifiers,
+                "conflate": "true"
+                    if props.get("geneprotein_conflation", True)
+                    else "false",
+                "drug_chemical_conflate": "true"
+                    if props.get("drugchemical_conflation", False)
+                    else "false",
+                "description": "true" if props.get("description", False) else "false",
+            },
+            timeout=timeout,
+        )
+        if response.status_code != 200:
+            # raise Exception(f"NodeNorm returned status code {response.status_code}")
+            logging.error(
+                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {ids}, skipping."
+            )
+            return {}
+        return response.json()
+
 
     def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
         """
@@ -79,27 +115,6 @@ class NodeNorm(Transformer):
         timeout = props.get("timeout", 120)
 
         ids = list(set(map(lambda a: a.id, annotated_text.annotations)))
-
-        response = session.post(
-            self.get_normalized_nodes_url,
-            json={
-                "curies": ids,
-                "conflate": "true"
-                if props.get("geneprotein_conflation", True)
-                else "false",
-                "drug_chemical_conflate": "true"
-                if props.get("drugchemical_conflation", False)
-                else "false",
-                "description": "true" if props.get("description", False) else "false",
-            },
-            timeout=timeout,
-        )
-        if response.status_code != 200:
-            # raise Exception(f"NodeNorm returned status code {response.status_code}")
-            logging.error(
-                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {ids}, skipping."
-            )
-            return annotated_text
 
         results = response.json()
 
