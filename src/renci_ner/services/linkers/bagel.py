@@ -31,7 +31,7 @@ from renci_ner.services.normalization.nodenorm import NodeNorm
 
 # Configuration.
 RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
-BAGEL_PROMPT_NAME = "bagel/ask_classes_cot"
+BAGEL_PROMPT_NAME = "bagel/ask_classes"
 BAGEL_DEFAULT_TIMEOUT = 120
 
 # Load BAGEL_USERNAME and BAGEL_PASSWORD from the environment.
@@ -141,10 +141,12 @@ class BagelAnnotator(Annotator):
             # Query Bagel.
             request_json = {
                 "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
-                "text": text.text,      # TODO: We currently give the full text as context, but in the future
-                # we'll probably want to limit it to +/- 3 sentences or so.
-                "entity": ann.text,
-                "synonyms": possible_matches,
+                "context": {
+                    "text": text.text,      # TODO: We currently give the full text as context, but in the future
+                    # we'll probably want to limit it to +/- 3 sentences or so.
+                    "entity": ann.text,
+                    "synonyms": possible_matches,
+                },
                 "config": {
                     "llm_model_name": "google/gemma-3-12b-it",
                     "organization": "",

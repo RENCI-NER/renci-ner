@@ -16,11 +16,11 @@ def test_check():
     result = bagel.annotate_with(annotated_text, [
         AnnotatorWithProps(
             annotator=BabelSAPBERTAnnotator(),
-            props={"limit": 10}
+            props={"limit": 5}
         ),
         AnnotatorWithProps(
             annotator=NameRes(),
-            props={"limit": 10}
+            props={"limit": 5}
         )
     ])
     assert result.text == "brain"
