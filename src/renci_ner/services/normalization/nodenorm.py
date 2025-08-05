@@ -18,6 +18,7 @@ from renci_ner.core import (
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
 NODENORM_DEFAULT_TIMEOUT = 120
 
+
 class NodeNorm(Transformer):
     """
     The Translator Node Normalizer as a Transformer.
@@ -80,11 +81,11 @@ class NodeNorm(Transformer):
             json={
                 "curies": identifiers,
                 "conflate": "true"
-                    if props.get("geneprotein_conflation", True)
-                    else "false",
+                if props.get("geneprotein_conflation", True)
+                else "false",
                 "drug_chemical_conflate": "true"
-                    if props.get("drugchemical_conflation", False)
-                    else "false",
+                if props.get("drugchemical_conflation", False)
+                else "false",
                 "description": "true" if props.get("description", False) else "false",
             },
             timeout=timeout,
@@ -96,7 +97,6 @@ class NodeNorm(Transformer):
             )
             return {}
         return response.json()
-
 
     def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
         """

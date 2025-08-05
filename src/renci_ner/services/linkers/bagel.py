@@ -42,6 +42,7 @@ BAGEL_DEFAULT_TIMEOUT = 120
 BAGEL_USERNAME = os.environ.get("BAGEL_USERNAME")
 BAGEL_PASSWORD = os.environ.get("BAGEL_PASSWORD")
 
+
 # A case class for uniquifying Bagel results.
 @dataclass(frozen=True)
 class BagelResult:
@@ -68,6 +69,7 @@ class BagelResult:
             taxa_ids=taxa_ids_str,
             synonym_type=d.get("synonym_type", ""),
         )
+
 
 class BagelAnnotator(Annotator):
     """
@@ -98,7 +100,7 @@ class BagelAnnotator(Annotator):
         response = self.requests_session.get(
             self.url + "/openapi.json",
             auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
-            timeout=timeout
+            timeout=timeout,
         )
         response.raise_for_status()
         openapi_data = response.json()
@@ -116,7 +118,12 @@ class BagelAnnotator(Annotator):
             "bagel_prompt_name": "The name of the Bagel prompt to use. Default: '${BAGEL_PROMPT_NAME}'.",
         }
 
-    def annotate_with(self, text: AnnotatedText, annotators: list[AnnotatorWithProps], props: dict = None) -> AnnotatedText:
+    def annotate_with(
+        self,
+        text: AnnotatedText,
+        annotators: list[AnnotatorWithProps],
+        props: dict = None,
+    ) -> AnnotatedText:
         """
         Given an AnnotatedText, re-annotate it using the given list of AnnotatorWithProps objects.
 
@@ -146,7 +153,9 @@ class BagelAnnotator(Annotator):
                     entity_type = result_ann.type
                     description = ""
 
-                    normalized = self.nodenorm.normalize([identifier], {"description": True})
+                    normalized = self.nodenorm.normalize(
+                        [identifier], {"description": True}
+                    )
                     if identifier in normalized:
                         norm_result = normalized[identifier]
                         if "type" in norm_result:
@@ -159,24 +168,26 @@ class BagelAnnotator(Annotator):
                     selected_color = random.sample(colors_available, 1)[0]
                     colors_available.remove(selected_color)
 
-                    possible_matches.append({
-                        "label": result_ann.label,
-                        "identifier": result_ann.id,
-                        "description": description,
-                        "entity_type": entity_type,
-                        # "color_code": selected_color,
-                        # TODO: implement taxa
-                        #   - Should include this for genes and proteins for NameRes
-                        #   - Might be worth putting in a default, but probably not needed.
-                        "taxa": "",
-                        "taxa_ids": [],
-                    })
+                    possible_matches.append(
+                        {
+                            "label": result_ann.label,
+                            "identifier": result_ann.id,
+                            "description": description,
+                            "entity_type": entity_type,
+                            # "color_code": selected_color,
+                            # TODO: implement taxa
+                            #   - Should include this for genes and proteins for NameRes
+                            #   - Might be worth putting in a default, but probably not needed.
+                            "taxa": "",
+                            "taxa_ids": [],
+                        }
+                    )
 
             # Query Bagel.
             request_json = {
                 "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
                 "context": {
-                    "text": text.text,      # TODO: We currently give the full text as context, but in the future
+                    "text": text.text,  # TODO: We currently give the full text as context, but in the future
                     # we'll probably want to limit it to +/- 3 sentences or so.
                     "entity": ann.text,
                     "synonyms": possible_matches,
@@ -186,11 +197,8 @@ class BagelAnnotator(Annotator):
                     "organization": "",
                     "access_key": "",
                     "url": "http://vllm-server/v1",
-                    "llm_model_args": {
-                        "top_p": 0.1,
-                        "temperature": 0
-                    }
-                }
+                    "llm_model_args": {"top_p": 0.1, "temperature": 0},
+                },
             }
             logging.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
             response = session.post(
@@ -202,7 +210,9 @@ class BagelAnnotator(Annotator):
             )
 
             if not response.ok:
-                raise ValueError(f"Bagel request failed: {json.dumps(request_json, indent=2)}")
+                raise ValueError(
+                    f"Bagel request failed: {json.dumps(request_json, indent=2)}"
+                )
 
             result = response.json()
             # The result here is a list of results. We'll apply all of them.
