@@ -70,6 +70,17 @@ class BagelResult:
             synonym_type=d.get("synonym_type", ""),
         )
 
+    def to_dict(self):
+        return {
+            "label": self.label,
+            "identifier": self.identifier,
+            "description": self.description,
+            "entity_type": self.entity_type,
+            "taxa": self.taxa,
+            "taxa_ids": self.taxa_ids.split("||"),
+            "synonym_type": self.synonym_type,
+        }
+
 
 class BagelAnnotator(Annotator):
     """
@@ -139,7 +150,7 @@ class BagelAnnotator(Annotator):
 
         output_annotations = []
         for ann in text.annotations:
-            possible_matches = []
+            possible_matches = set()
             colors_available = list(set(webcolors.names(spec=webcolors.CSS3)))
 
             # Run it through every annotator, and collect all the resulting matches.
@@ -168,20 +179,17 @@ class BagelAnnotator(Annotator):
                     selected_color = random.sample(colors_available, 1)[0]
                     colors_available.remove(selected_color)
 
-                    possible_matches.append(
-                        {
-                            "label": result_ann.label,
-                            "identifier": result_ann.id,
-                            "description": description,
-                            "entity_type": entity_type,
-                            # "color_code": selected_color,
-                            # TODO: implement taxa
-                            #   - Should include this for genes and proteins for NameRes
-                            #   - Might be worth putting in a default, but probably not needed.
-                            "taxa": "",
-                            "taxa_ids": [],
-                        }
-                    )
+                    possible_matches.add(BagelResult(
+                        label=result_ann.label,
+                        identifier=result_ann.id,
+                        description=description,
+                        entity_type=entity_type,
+                        # TODO: implement taxa
+                        #   - Should include this for genes and proteins for NameRes
+                        #   - Might be worth putting in a default, but probably not needed.
+                        taxa="",
+                        taxa_ids=""
+                    ))
 
             # Query Bagel.
             request_json = {
@@ -190,7 +198,7 @@ class BagelAnnotator(Annotator):
                     "text": text.text,  # TODO: We currently give the full text as context, but in the future
                     # we'll probably want to limit it to +/- 3 sentences or so.
                     "entity": ann.text,
-                    "synonyms": possible_matches,
+                    "synonyms": list(map(lambda x: x.to_dict(), possible_matches)),
                 },
                 "config": {
                     "llm_model_name": "google/gemma-3-12b-it",

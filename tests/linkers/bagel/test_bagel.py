@@ -18,8 +18,8 @@ def test_check():
     result = bagel.annotate_with(
         annotated_text,
         [
-            AnnotatorWithProps(annotator=BabelSAPBERTAnnotator(), props={"limit": 5}),
-            AnnotatorWithProps(annotator=NameRes(), props={"limit": 5}),
+            AnnotatorWithProps(annotator=BabelSAPBERTAnnotator(), props={"limit": 10}),
+            AnnotatorWithProps(annotator=NameRes(), props={"limit": 10}),
         ],
     )
     assert result.text == annotated_text.text
