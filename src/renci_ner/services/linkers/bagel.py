@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import random
+from dataclasses import dataclass, field
 
 import requests
 import webcolors
@@ -25,18 +26,48 @@ from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
     Annotator,
-    NormalizedAnnotation, AnnotatorWithProps,
+    NormalizedAnnotation,
+    AnnotatorWithProps,
+    Annotation,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
 # Configuration.
 RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
 BAGEL_PROMPT_NAME = "bagel/ask_classes"
+DEFAULT_LIMIT = 10
 BAGEL_DEFAULT_TIMEOUT = 120
 
 # Load BAGEL_USERNAME and BAGEL_PASSWORD from the environment.
 BAGEL_USERNAME = os.environ.get("BAGEL_USERNAME")
 BAGEL_PASSWORD = os.environ.get("BAGEL_PASSWORD")
+
+# A case class for uniquifying Bagel results.
+@dataclass(frozen=True)
+class BagelResult:
+    label: str = ""
+    identifier: str = ""
+    description: str = ""
+    entity_type: str = ""
+    taxa: str = ""
+    taxa_ids: str = ""
+    synonym_type: str = ""
+
+    @staticmethod
+    def from_dict(d):
+        # Taxa_ids is a list, which isn't hashable. We turn it into a string so we can hash them.
+        taxa_ids = d.get("taxa_ids", [])
+        taxa_ids_str = "||".join(taxa_ids)
+
+        return BagelResult(
+            label=d.get("label", ""),
+            identifier=d.get("identifier", ""),
+            description=d.get("description", ""),
+            entity_type=d.get("entity_type", ""),
+            taxa=d.get("taxa", ""),
+            taxa_ids=taxa_ids_str,
+            synonym_type=d.get("synonym_type", ""),
+        )
 
 class BagelAnnotator(Annotator):
     """
@@ -99,6 +130,7 @@ class BagelAnnotator(Annotator):
             props = {}
         timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
 
+        output_annotations = []
         for ann in text.annotations:
             possible_matches = []
             colors_available = list(set(webcolors.names(spec=webcolors.CSS3)))
@@ -160,7 +192,7 @@ class BagelAnnotator(Annotator):
                     }
                 }
             }
-            logging.warning(f"Bagel request: {json.dumps(request_json, indent=2)}")
+            logging.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
             response = session.post(
                 self.rerank_url,
                 json=request_json,
@@ -169,10 +201,42 @@ class BagelAnnotator(Annotator):
                 timeout=timeout,
             )
 
-            response.raise_for_status()
-            result = response.json()
-            raise RuntimeError(f"Bagel result: {json.dumps(result, indent=2)}")
+            if not response.ok:
+                raise ValueError(f"Bagel request failed: {json.dumps(request_json, indent=2)}")
 
+            result = response.json()
+            # The result here is a list of results. We'll apply all of them.
+            bagel_results = list(map(lambda x: BagelResult.from_dict(x), result))
+            unique_bagel_results = []
+            # Generate a list of unique Bagel results, preserving the original order.
+            unique_bagel_results_set = {}
+            for bagel_result in bagel_results:
+                if bagel_result not in unique_bagel_results_set:
+                    unique_bagel_results.append(bagel_result)
+                    unique_bagel_results_set[bagel_result] = True
+
+            # Update annotation with Bagel results.
+            for bagel_result in unique_bagel_results:
+                new_based_on = list(ann.based_on)
+                new_based_on.append(ann)
+                # This is almost certainly a NormalizedAnnotation, but we don't know for sure.
+                output_annotations.append(
+                    Annotation(
+                        text=ann.text,
+                        start=ann.start,
+                        end=ann.end,
+                        id=bagel_result.identifier,
+                        label=bagel_result.label,
+                        type=bagel_result.entity_type,
+                        props={
+                            "description": bagel_result.description,
+                        },
+                        based_on=new_based_on,
+                        provenance=self.provenance,
+                    )
+                )
+
+        return AnnotatedText(text.text, output_annotations)
 
     def annotate(self, text, props=None) -> AnnotatedText:
         """

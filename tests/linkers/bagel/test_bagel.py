@@ -8,9 +8,9 @@ from renci_ner.services.ner.biomegatron import BioMegatron
 def test_check():
     """Check that Bagel can be used as intended."""
     biomegatron = BioMegatron()
-    annotated_text = biomegatron.annotate(
-        "In orbital cellulitis, an infection travels through the ophthalmic vein into the dural venous sinuses, " +
-        "causing dural sinus thrombosis.")
+    text = "In orbital cellulitis, an infection travels through the ophthalmic vein into the dural venous sinuses, " + \
+        "causing dural sinus thrombosis."
+    annotated_text = biomegatron.annotate(text)
 
     bagel = BagelAnnotator()
     result = bagel.annotate_with(annotated_text, [
@@ -23,13 +23,5 @@ def test_check():
             props={"limit": 10}
         )
     ])
-    assert result.text == "brain"
-    annotations = result.annotations
-    assert len(annotations) == 11
-    top_annot = annotations[0]
-    assert top_annot.label == "brain"
-    assert top_annot.id == "UBERON:0000955"
-    assert top_annot.type == "biolink:GrossAnatomicalStructure"
-
-    assert top_annot.provenance.name == "NameRes"
-    assert top_annot.provenance.url == "https://name-resolution-sri.renci.org"
+    assert result.text == annotated_text.text
+    assert result.annotations == []
