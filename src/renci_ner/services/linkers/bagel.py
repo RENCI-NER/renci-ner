@@ -191,6 +191,11 @@ class BagelAnnotator(Annotator):
                         taxa_ids=""
                     ))
 
+            # If we don't have any possible matches, we can just leave this annotation as-is.
+            if len(possible_matches) == 0:
+                output_annotations.append(ann)
+                continue
+
             # Query Bagel.
             request_json = {
                 "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
@@ -219,7 +224,7 @@ class BagelAnnotator(Annotator):
 
             if not response.ok:
                 raise ValueError(
-                    f"Bagel request failed: {json.dumps(request_json, indent=2)}"
+                    f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
                 )
 
             result = response.json()
