@@ -169,11 +169,12 @@ class BagelAnnotator(Annotator):
                     )
                     if identifier in normalized:
                         norm_result = normalized[identifier]
-                        if "type" in norm_result:
-                            entity_type = norm_result["type"][0]
-                        if "id" in norm_result:
-                            if "description" in norm_result["id"]:
-                                description = norm_result["id"]["description"]
+                        if norm_result is not None:
+                            if "type" in norm_result:
+                                entity_type = norm_result["type"][0]
+                            if "id" in norm_result:
+                                if "description" in norm_result["id"]:
+                                    description = norm_result["id"]["description"]
 
                     # Choose a color.
                     selected_color = random.sample(colors_available, 1)[0]
