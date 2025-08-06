@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 import requests
 import webcolors
+from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
 from renci_ner.core import (
@@ -224,7 +225,7 @@ class BagelAnnotator(Annotator):
             )
 
             if not response.ok:
-                raise ValueError(
+                raise HTTPError(
                     f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
                 )
 
