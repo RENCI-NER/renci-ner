@@ -4,6 +4,7 @@
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
 import logging
+from locale import normalize
 
 import requests
 
@@ -93,7 +94,7 @@ class NodeNorm(Transformer):
         if response.status_code != 200:
             # raise Exception(f"NodeNorm returned status code {response.status_code}")
             logging.error(
-                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {ids}, skipping."
+                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
             )
             return {}
         return response.json()
@@ -115,8 +116,7 @@ class NodeNorm(Transformer):
         timeout = props.get("timeout", 120)
 
         ids = list(set(map(lambda a: a.id, annotated_text.annotations)))
-
-        results = response.json()
+        results = self.normalize(ids, props=props)
 
         output_annotations = []
         for annotation in annotated_text.annotations:
