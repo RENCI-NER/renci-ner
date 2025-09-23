@@ -52,6 +52,9 @@ class BabelSAPBERTAnnotator(Annotator):
             "version", "NA"
         )
 
+    def __str__(self):
+        return f"BabelSAPBERTAnnotator(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version})"
+
     def supported_properties(self):
         """Configurable properties for SAPBERT."""
         return {
