@@ -74,6 +74,9 @@ def get_novel_column_name(new_column: str, old_columns: list):
     default=False,
     help="Allow duplicate IDs in output.",
 )
+@click.option(
+    '--verbose', '-v', is_flag=True, default=False, help='Enable verbose logging'
+)
 def renci_ner(
     input_files,
     column,
@@ -83,6 +86,7 @@ def renci_ner(
     output_format,
     duplicate_data,
     allow_duplicate_ids,
+    verbose,
 ):
     """
     A CLI for the RENCI NER.
@@ -99,6 +103,10 @@ def renci_ner(
     input_filenames = list(map(click.format_filename, input_files))
     output_filename = click.format_filename(output)
     columns = column
+
+    # Set the logging level.
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     # Set up the pipeline.
     if method == "biomegatron-sapbert":
