@@ -150,7 +150,8 @@ class BagelAnnotator(Annotator):
         timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
 
         output_annotations = []
-        for ann in text.annotations:
+        for index, ann in enumerate(text.annotations):
+            logging.debug(f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})")
             possible_matches = set()
             colors_available = list(set(webcolors.names(spec=webcolors.CSS3)))
 
@@ -193,10 +194,14 @@ class BagelAnnotator(Annotator):
                         taxa_ids=""
                     ))
 
+                logging.debug(f"Found {len(possible_matches)} possible matches for '{ann.text}' with annotator {annotator_with_props}.")
+
             # If we don't have any possible matches, we can just leave this annotation as-is.
             if len(possible_matches) == 0:
                 output_annotations.append(ann)
                 continue
+
+            logging.debug(f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}.")
 
             # Query Bagel.
             request_json = {

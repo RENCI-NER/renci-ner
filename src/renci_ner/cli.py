@@ -1,5 +1,7 @@
 import csv
 
+from renci_ner.core import AnnotatorWithProps
+from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
@@ -42,7 +44,7 @@ def get_novel_column_name(new_column: str, old_columns: list):
 )
 @click.option(
     "--method",
-    type=click.Choice(["biomegatron-sapbert", "biomegatron-nameres"]),
+    type=click.Choice(["biomegatron-sapbert", "biomegatron-nameres", "biomegatron-bagel"]),
     default="biomegatron-sapbert",
     help="NER method",
 )
@@ -123,6 +125,17 @@ def renci_ner(
         def ner_method(text):
             return (
                 BioMegatron().annotate(text).reannotate(NameRes(), {"limit": ner_limit})
+            )
+
+    elif method == "biomegatron-bagel":
+        def ner_method(text):
+            annotated_text = BioMegatron().annotate(text)
+            return BagelAnnotator().annotate_with(
+                annotated_text,
+                [
+                    AnnotatorWithProps(annotator=BabelSAPBERTAnnotator(), props={"limit": ner_limit}),
+                    AnnotatorWithProps(annotator=NameRes(), props={"limit": ner_limit}),
+                ],
             )
 
     else:

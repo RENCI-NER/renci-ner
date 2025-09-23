@@ -76,9 +76,9 @@ class NodeNorm(Transformer):
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
 
-        if len(ids) == 0:
-            logging.debug(f"No identifiers to normalize for {annotated_text}")
-            return annotated_text
+        if len(identifiers) == 0:
+            logging.debug(f"No identifiers to normalize in NodeNorm.normalize({identifiers}, {props}), ignoring.")
+            return {}
 
         response = session.post(
             self.get_normalized_nodes_url,
