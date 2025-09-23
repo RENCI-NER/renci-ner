@@ -266,3 +266,14 @@ class Transformer:
         :return: The transformed AnnotatedText.
         """
         return annotated_text
+
+
+@dataclass
+class AnnotatorWithProps:
+    """
+    Sometimes we need to share a set of annotators along with the properties used to execute them. This case class
+    can encapsulate that functionality.
+    """
+
+    annotator: Annotator
+    props: dict = field(default_factory=dict)
