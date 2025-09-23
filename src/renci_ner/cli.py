@@ -1,5 +1,8 @@
 import csv
 
+import requests
+from urllib3 import Retry
+
 from renci_ner.core import AnnotatorWithProps
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
@@ -77,6 +80,12 @@ def get_novel_column_name(new_column: str, old_columns: list):
     help="Allow duplicate IDs in output.",
 )
 @click.option(
+    '--retries',
+    type=int,
+    default=10,
+    help='Number of retries for failed requests',
+)
+@click.option(
     '--verbose', '-v', is_flag=True, default=False, help='Enable verbose logging'
 )
 def renci_ner(
@@ -88,6 +97,7 @@ def renci_ner(
     output_format,
     duplicate_data,
     allow_duplicate_ids,
+    retries,
     verbose,
 ):
     """
@@ -101,6 +111,8 @@ def renci_ner(
     :param ner_limit: The maximum number of results per annotation.
     :param duplicate_data: Whether to duplicate the data in the output.
     :param allow_duplicate_ids: Whether to allow duplicate IDs in the output.
+    :param retries: Number of retries for failed requests.
+    :param verbose: Whether to enable verbose logging.
     """
     input_filenames = list(map(click.format_filename, input_files))
     output_filename = click.format_filename(output)
@@ -110,31 +122,42 @@ def renci_ner(
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    # Set up a Requests session we can use.
+    session = requests.Session()
+    retry = Retry(
+        total=retries,
+        backoff_factor=0.1,
+        status_forcelist=[502, 503, 504],
+        allowed_methods={'GET', 'POST'},
+    )
+    session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retry))
+    session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retry))
+
     # Set up the pipeline.
     if method == "biomegatron-sapbert":
 
         def ner_method(text):
             sapbert_annotations = (
-                BioMegatron()
+                BioMegatron(requests_session=session)
                 .annotate(text)
-                .reannotate(BabelSAPBERTAnnotator(), {"limit": ner_limit})
+                .reannotate(BabelSAPBERTAnnotator(requests_session=session), {"limit": ner_limit})
             )
-            return NodeNorm().transform(sapbert_annotations)
+            return NodeNorm(requests_session=session).transform(sapbert_annotations)
     elif method == "biomegatron-nameres":
 
         def ner_method(text):
             return (
-                BioMegatron().annotate(text).reannotate(NameRes(), {"limit": ner_limit})
+                BioMegatron(requests_session=session).annotate(text).reannotate(NameRes(requests_session=session), {"limit": ner_limit})
             )
 
     elif method == "biomegatron-bagel":
         def ner_method(text):
-            annotated_text = BioMegatron().annotate(text)
-            return BagelAnnotator().annotate_with(
+            annotated_text = BioMegatron(requests_session=session).annotate(text)
+            return BagelAnnotator(requests_session=session).annotate_with(
                 annotated_text,
                 [
-                    AnnotatorWithProps(annotator=BabelSAPBERTAnnotator(), props={"limit": ner_limit}),
-                    AnnotatorWithProps(annotator=NameRes(), props={"limit": ner_limit}),
+                    AnnotatorWithProps(annotator=BabelSAPBERTAnnotator(requests_session=session), props={"limit": ner_limit}),
+                    AnnotatorWithProps(annotator=NameRes(requests_session=session), props={"limit": ner_limit}),
                 ],
             )
 
