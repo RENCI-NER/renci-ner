@@ -3,6 +3,8 @@
 # Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
+import logging
+
 import requests
 
 from renci_ner.core import (
@@ -11,6 +13,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"
@@ -51,6 +54,7 @@ class BabelSAPBERTAnnotator(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
 
     def __str__(self):
         return f"BabelSAPBERTAnnotator(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version})"
@@ -80,15 +84,20 @@ class BabelSAPBERTAnnotator(Annotator):
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
 
+        data = {
+            "text": text,
+            "model_name": "sapbert",
+            "count": limit,
+        }
         response = session.post(
             self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
+            json=data,
             timeout=timeout,
         )
+
+        if response.status_code == 403:
+            log_http_403_errors(text, self.annotate_url, data, logger=self.logger)
+            return AnnotatedText(text, [])
 
         response.raise_for_status()
         results = response.json()

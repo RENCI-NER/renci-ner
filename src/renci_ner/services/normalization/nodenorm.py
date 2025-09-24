@@ -3,6 +3,7 @@
 # Source code: https://github.com/TranslatorSRI/NodeNormalization
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
+import json
 import logging
 
 import requests
@@ -13,6 +14,7 @@ from renci_ner.core import (
     NormalizedAnnotation,
     Transformer,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
@@ -53,6 +55,7 @@ class NodeNorm(Transformer):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
 
     def supported_properties(self):
         """Some configurable parameters."""
@@ -80,20 +83,26 @@ class NodeNorm(Transformer):
             logging.debug(f"No identifiers to normalize in NodeNorm.normalize({identifiers}, {props}), ignoring.")
             return {}
 
+        data = {
+            "curies": identifiers,
+            "conflate": "true"
+            if props.get("geneprotein_conflation", True)
+            else "false",
+            "drug_chemical_conflate": "true"
+            if props.get("drugchemical_conflation", False)
+            else "false",
+            "description": "true" if props.get("description", False) else "false",
+        }
         response = session.post(
             self.get_normalized_nodes_url,
-            json={
-                "curies": identifiers,
-                "conflate": "true"
-                if props.get("geneprotein_conflation", True)
-                else "false",
-                "drug_chemical_conflate": "true"
-                if props.get("drugchemical_conflation", False)
-                else "false",
-                "description": "true" if props.get("description", False) else "false",
-            },
+            json=data,
             timeout=timeout,
         )
+
+        if response.status_code == 403:
+            log_http_403_errors(json.dumps(identifiers), self.get_normalized_nodes_url, data, logger=self.logger)
+            return {}
+
         if response.status_code != 200:
             # raise Exception(f"NodeNorm returned status code {response.status_code}")
             logging.error(

@@ -32,6 +32,7 @@ from renci_ner.core import (
     Annotation,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
@@ -119,6 +120,7 @@ class BagelAnnotator(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
 
         # TODO: properly configure NodeNorm.
         self.nodenorm = NodeNorm()
@@ -287,15 +289,19 @@ class BagelAnnotator(Annotator):
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
 
+        data = {
+            "text": text,
+            "model_name": "sapbert",
+            "count": limit,
+        }
         response = session.post(
             self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
+            json=data,
             timeout=timeout,
         )
+        if response.status_code == 403:
+            log_http_403_errors(text, self.annotate_url, data, logger=self.logger)
+            return AnnotatedText(text, [])
 
         response.raise_for_status()
         results = response.json()

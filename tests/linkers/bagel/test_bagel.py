@@ -1,3 +1,6 @@
+import pytest
+from requests import HTTPError
+
 from renci_ner.core import AnnotatorWithProps, Annotation, AnnotationProvenance
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.bagel import BagelAnnotator
@@ -7,14 +10,22 @@ from renci_ner.services.ner.biomegatron import BioMegatron
 
 def test_check():
     """Check that Bagel can be used as intended."""
-    biomegatron = BioMegatron()
+    try:
+        biomegatron = BioMegatron()
+    except HTTPError as err:
+        pytest.skip(f"BioMegatron is not available: {err}")
+        return
     text = (
         "In orbital cellulitis, an infection travels through the ophthalmic vein into the dural venous sinuses, "
         + "causing dural sinus thrombosis."
     )
     annotated_text = biomegatron.annotate(text)
 
-    bagel = BagelAnnotator()
+    try:
+        bagel = BagelAnnotator()
+    except HTTPError as err:
+        pytest.skip(f"Bagel is not available: {err}")
+        return
     result = bagel.annotate_with(
         annotated_text,
         [

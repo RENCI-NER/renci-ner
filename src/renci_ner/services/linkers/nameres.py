@@ -3,6 +3,8 @@
 # Source code: https://github.com/TranslatorSRI/NameResolution
 # Hosted at: https://name-resolution-sri.renci.org/docs
 #
+import logging
+
 import requests
 
 from renci_ner.core import (
@@ -11,6 +13,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"
@@ -48,6 +51,7 @@ class NameRes(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
 
     def __str__(self):
         return f"NameRes(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version}"
@@ -79,20 +83,25 @@ class NameRes(Annotator):
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
+        data = {
+            "string": text,
+            "autocomplete": props.get("autocomplete", "false"),
+            "limit": props.get("limit", 10),
+            "highlighting": props.get("highlighting", "false"),
+            "biolink_type": "|".join(props.get("biolink_types", [])),
+            "only_prefixes": "|".join(props.get("only_prefixes", [])),
+            "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
+            "only_taxa": "|".join(props.get("only_taxa", [])),
+        }
         response = session.get(
             self.lookup_url,
-            params={
-                "string": text,
-                "autocomplete": props.get("autocomplete", "false"),
-                "limit": props.get("limit", 10),
-                "highlighting": props.get("highlighting", "false"),
-                "biolink_type": "|".join(props.get("biolink_types", [])),
-                "only_prefixes": "|".join(props.get("only_prefixes", [])),
-                "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
-                "only_taxa": "|".join(props.get("only_taxa", [])),
-            },
+            params=data,
             timeout=timeout,
         )
+
+        if response.status_code == 403:
+            log_http_403_errors(text, self.lookup_url, data, logger=self.logger)
+            return AnnotatedText(text, [])
 
         response.raise_for_status()
         results = response.json()
