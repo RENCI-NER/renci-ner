@@ -127,7 +127,7 @@ def renci_ner(
     retry = Retry(
         total=retries,
         backoff_factor=0.1,
-        status_forcelist=[502, 503, 504],
+        status_forcelist=[500, 502, 503, 504],
         allowed_methods={'GET', 'POST'},
     )
     session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retry))
