@@ -210,7 +210,7 @@ class BagelAnnotator(Annotator):
                 "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
                 "context": {
                     "text": text.text,  # TODO: We currently give the full text as context, but in the future
-                    # we'll probably want to limit it to +/- 3 sentences or so.
+                                        # we'll probably want to limit it to +/- 3 sentences or so.
                     "entity": ann.text,
                     "synonyms": list(map(lambda x: x.to_dict(), possible_matches)),
                 },
@@ -230,6 +230,11 @@ class BagelAnnotator(Annotator):
                 auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
                 timeout=timeout,
             )
+
+            # 403 errors probably mean that the RENCI Ingress is catching something it shouldn't.
+            if response.status_code == 403:
+                log_http_403_errors(text.text, self.rerank_url, request_json, logger=self.logger)
+                continue
 
             if not response.ok:
                 raise HTTPError(
