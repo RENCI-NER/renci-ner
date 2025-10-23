@@ -87,6 +87,11 @@ def get_novel_column_name(new_column: str, old_columns: list):
     help='Number of retries for failed requests',
 )
 @click.option(
+    '--continue-jsonl',
+    type=click.Path(exists=False, file_okay=True, dir_okay=False),
+    help='A JSONL output file to continue from',
+)
+@click.option(
     '--verbose', '-v', is_flag=True, default=False, help='Enable verbose logging'
 )
 def renci_ner(
@@ -100,6 +105,7 @@ def renci_ner(
     allow_duplicate_ids,
     retries,
     verbose,
+    continue_jsonl,
 ):
     """
     A CLI for the RENCI NER.
@@ -118,6 +124,7 @@ def renci_ner(
     input_filenames = list(map(click.format_filename, input_files))
     output_filename = click.format_filename(output)
     columns = column
+    continue_jsonl_filename = click.format_filename(continue_jsonl) if continue_jsonl else None
 
     # TODO: if output_format is not set, we should guess it from the extension on output_filename.
 
@@ -135,6 +142,16 @@ def renci_ner(
     )
     session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retry))
     session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retry))
+
+    # Load up the continue data if specified.
+    text_already_processed = dict()
+    if continue_jsonl_filename:
+        with open(continue_jsonl_filename, "r") as continuef:
+            for line in continuef:
+                data = json.loads(line)
+                if "text" in data:
+                    text_already_processed[data["text"]] = data
+        logging.info(f"Loaded {len(text_already_processed)} text already processed entries from continue JSONL file {continue_jsonl_filename}.")
 
     # Set up the pipeline.
     if method == "biomegatron-sapbert":
@@ -194,6 +211,8 @@ def renci_ner(
                 old_columns = list(reader.fieldnames)
 
                 if output_format in ["csv", "tsv"]:
+                    # TODO: need to add support for continue.
+
                     # Make sure our new columns don't overlap with existing columns.
                     ner_text_column = get_novel_column_name("ner_text", old_columns)
                     ner_label_column = get_novel_column_name("ner_label", old_columns)
@@ -269,6 +288,13 @@ def renci_ner(
                         ner_text = "\n".join(
                             [row[column] for column in columns if row[column].strip() != ""]
                         )
+
+                        if ner_text in text_already_processed:
+                            logging.info(f" - Text already processed, returning previous entry: '{ner_text}'")
+                            outputf.write(json.dumps(text_already_processed[ner_text]) + "\n")
+                            count_outputs += 1
+                            continue
+
                         if ner_text.strip() == "":
                             annotated_text = AnnotatedText("", [])
                         else:
@@ -279,7 +305,7 @@ def renci_ner(
                         outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
                         count_outputs += 1
 
-                    logging.info(f"Wrote {count_outputs} JSON lines to {output_filename}")
+                    logging.info(f"Wrote {count_outputs} JSON lines to {output_filename}.")
                 else:
                     raise ValueError(f"Unsupported output format: {output_format}")
 
