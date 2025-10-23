@@ -14,6 +14,19 @@ class AnnotationProvenance:
     url: str
     version: str
 
+    def __str__(self):
+        """Return a string representation of this AnnotationProvenance."""
+        return f"AnnotationProvenance(name='{self.name}', url='{self.url}', version='{self.version}')"
+
+    def to_dict(self):
+        """Return a dictionary representation of this AnnotationProvenance."""
+        return {
+            "@type": "lemur:AnnotationProvenance",
+            "name": self.name,
+            "url": self.url,
+            "version": self.version,
+        }
+
 
 @dataclass
 class Annotation:
@@ -40,6 +53,25 @@ class Annotation:
     def provenances(self) -> list[AnnotationProvenance]:
         """Return a list of provenances for this annotation and its based_on annotations."""
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
+
+    def __str__(self):
+        """Return a string representation of this Annotation."""
+        return f"Annotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
+
+    def to_dict(self):
+        """Return a dictionary representation of this Annotation."""
+        return {
+            "@type": "lemur:Annotation",
+            "text": self.text,
+            "id": self.id,
+            "label": self.label,
+            "type": self.type,
+            "start": self.start,
+            "end": self.end,
+            "provenance": self.provenance.to_dict(),
+            "based_on": [ann.to_dict() for ann in self.based_on],
+            "props": self.props,
+        }
 
 
 @dataclass
@@ -123,6 +155,26 @@ class NormalizedAnnotation(Annotation):
             biolink_type=biolink_type,
         )
 
+    def __str__(self):
+        """Return a string representation of this NormalizedAnnotation."""
+        return f"NormalizedAnnotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
+
+    def to_dict(self):
+        """Return a dictionary representation of this NormalizedAnnotation."""
+        return {
+            "@type": "lemur:NormalizedAnnotation",
+            "text": self.text,
+            "id": self.id,
+            "biolink_type": self.biolink_type,
+            "label": self.label,
+            "type": self.type,
+            "start": self.start,
+            "end": self.end,
+            "provenance": self.provenance.to_dict(),
+            "based_on": [ann.to_dict() for ann in self.based_on],
+            "props": self.props,
+        }
+
 
 @dataclass
 class AnnotatedText:
@@ -199,6 +251,26 @@ class AnnotatedText:
 
         return AnnotatedText(self.text, new_annotations)
 
+    def __str__(self):
+        """Return a string representation of this AnnotatedText."""
+        if len(self.annotations) < 20:
+            annotations_str = ", ".join(map(str, self.annotations))
+        else:
+            annotations_str = f"{len(self.annotations)} annotations"
+
+        if len(self.text) < 100:
+            return f"AnnotatedText(text='{self.text}', annotations={annotations_str})"
+        else:
+            return f"AnnotatedText(text='{self.text[:100]}...', annotations={annotations_str})"
+
+    def to_dict(self):
+        """Convert this AnnotatedText to a dictionary."""
+
+        return {
+            "@type": "lemur:AnnotatedText",
+            "text": self.text,
+            "annotations": [annotation.to_dict() for annotation in self.annotations],
+        }
 
 class Annotator:
     """

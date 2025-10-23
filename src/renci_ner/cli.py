@@ -1,9 +1,10 @@
 import csv
+import json
 
 import requests
 from urllib3 import Retry
 
-from renci_ner.core import AnnotatorWithProps
+from renci_ner.core import AnnotatorWithProps, AnnotatedText
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.linkers.nameres import NameRes
@@ -60,7 +61,7 @@ def get_novel_column_name(new_column: str, old_columns: list):
 )
 @click.option(
     "--output-format", "-f",
-    type=click.Choice(["csv", "tsv"]),
+    type=click.Choice(["csv", "tsv", "jsonl"]),
     default="csv",
     help="Output format",
 )
@@ -117,6 +118,8 @@ def renci_ner(
     input_filenames = list(map(click.format_filename, input_files))
     output_filename = click.format_filename(output)
     columns = column
+
+    # TODO: if output_format is not set, we should guess it from the extension on output_filename.
 
     # Set the logging level.
     if verbose:
@@ -190,72 +193,95 @@ def renci_ner(
             with open(output_filename, "w") as outputf:
                 old_columns = list(reader.fieldnames)
 
-                # Make sure our new columns don't overlap with existing columns.
-                ner_text_column = get_novel_column_name("ner_text", old_columns)
-                ner_label_column = get_novel_column_name("ner_label", old_columns)
-                ner_curie_column = get_novel_column_name("ner_curie", old_columns)
-                ner_biolink_type_column = get_novel_column_name("ner_biolink_type", old_columns)
+                if output_format in ["csv", "tsv"]:
+                    # Make sure our new columns don't overlap with existing columns.
+                    ner_text_column = get_novel_column_name("ner_text", old_columns)
+                    ner_label_column = get_novel_column_name("ner_label", old_columns)
+                    ner_curie_column = get_novel_column_name("ner_curie", old_columns)
+                    ner_biolink_type_column = get_novel_column_name("ner_biolink_type", old_columns)
 
-                output_fields = old_columns + [
-                    ner_text_column,
-                    ner_label_column,
-                    ner_curie_column,
-                    ner_biolink_type_column
-                ]
-                writer = (
-                    csv.DictWriter(outputf, dialect="excel", fieldnames=output_fields)
-                    if output_format == "csv"
-                    else csv.DictWriter(
-                        outputf, dialect="excel_tab", fieldnames=output_fields
+                    output_fields = old_columns + [
+                        ner_text_column,
+                        ner_label_column,
+                        ner_curie_column,
+                        ner_biolink_type_column
+                    ]
+                    writer = (
+                        csv.DictWriter(outputf, dialect="excel", fieldnames=output_fields)
+                        if output_format == "csv"
+                        else csv.DictWriter(
+                            outputf, dialect="excel_tab", fieldnames=output_fields
+                        )
                     )
-                )
-                writer.writeheader()
+                    writer.writeheader()
 
-                for row in reader:
-                    logging.info(f"Processing row: {row}")
+                    for row in reader:
+                        logging.info(f"Processing row: {row}")
 
-                    ner_text = "\n".join(
-                        [row[column] for column in columns if row[column].strip() != ""]
-                    )
-
-                    if ner_text.strip() == "":
-                        writer.writerow(row)
-                        continue
-
-                    annotation_ids = set()
-
-                    annotated_text = ner_method(ner_text)
-
-                    if len(annotated_text.annotations) == 0:
-                        writer.writerow(row)
-                        continue
-
-                    first_row = True
-                    for annotation in annotated_text.annotations:
-                        if first_row:
-                            output_row = row.copy()
-                            first_row = False
-                        elif not duplicate_data:
-                            output_row = dict(map(lambda x: (x, ""), row.keys()))
-
-                        if (not allow_duplicate_ids) and (
-                            annotation.id in annotation_ids
-                        ):
-                            continue
-                        annotation_ids.add(annotation.id)
-
-                        output_row[ner_text_column] = annotation.text
-                        output_row[ner_label_column] = annotation.label
-                        output_row[ner_curie_column] = annotation.id
-                        output_row[ner_biolink_type_column] = annotation.type
-                        writer.writerow(output_row)
-
-                        logging.info(
-                            f" - Annotation: '{annotation.text}' annotated as {annotation.id} '{annotation.label}' (type {annotation.type})"
+                        ner_text = "\n".join(
+                            [row[column] for column in columns if row[column].strip() != ""]
                         )
 
-                    logging.info("")
+                        if ner_text.strip() == "":
+                            writer.writerow(row)
+                            continue
 
+                        annotation_ids = set()
+
+                        annotated_text = ner_method(ner_text)
+
+                        if len(annotated_text.annotations) == 0:
+                            writer.writerow(row)
+                            continue
+
+                        first_row = True
+                        for annotation in annotated_text.annotations:
+                            if first_row:
+                                output_row = row.copy()
+                                first_row = False
+                            elif not duplicate_data:
+                                output_row = dict(map(lambda x: (x, ""), row.keys()))
+
+                            if (not allow_duplicate_ids) and (
+                                annotation.id in annotation_ids
+                            ):
+                                continue
+                            annotation_ids.add(annotation.id)
+
+                            output_row[ner_text_column] = annotation.text
+                            output_row[ner_label_column] = annotation.label
+                            output_row[ner_curie_column] = annotation.id
+                            output_row[ner_biolink_type_column] = annotation.type
+                            writer.writerow(output_row)
+
+                            logging.info(
+                                f" - Annotation: '{annotation.text}' annotated as {annotation.id} '{annotation.label}' (type {annotation.type})"
+                            )
+
+                        logging.info("")
+                elif output_format == "jsonl":
+                    count_outputs = 0
+
+                    # The easiest output format: we basically serialize the AnnotatedText object.
+                    for row in reader:
+                        logging.info(f"Processing row: {row}")
+
+                        ner_text = "\n".join(
+                            [row[column] for column in columns if row[column].strip() != ""]
+                        )
+                        if ner_text.strip() == "":
+                            annotated_text = AnnotatedText("", [])
+                        else:
+                            annotated_text = ner_method(ner_text)
+
+                        logging.info(f" - Annotated text: {annotated_text}")
+
+                        outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
+                        count_outputs += 1
+
+                    logging.info(f"Wrote {count_outputs} JSON lines to {output_filename}")
+                else:
+                    raise ValueError(f"Unsupported output format: {output_format}")
 
 if __name__ == "__main__":
     renci_ner()
