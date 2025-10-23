@@ -53,6 +53,9 @@ class NameRes(Annotator):
         )
         self.logger = logging.getLogger(str(self))
 
+        # Set up a cache.
+        self.cache = {}
+
     def __str__(self):
         return f"NameRes(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version}"
 
@@ -67,6 +70,7 @@ class NameRes(Annotator):
             "only_prefixes": "(list of prefixes, default: []) The prefixes to filter results to, combined with OR.",
             "exclude_prefixes": "(list of prefixes, default: []) The prefixes to exclude from search results, combined with AND.",
             "only_taxa": "(list of taxa, default: []) The taxa to filter results to as NCBITaxon identifiers, combined with OR.",
+            "skip_cache": "(true/false, default: false) Do not use the cache.",
         }
 
     def annotate(self, text, props=None) -> AnnotatedText:
@@ -79,6 +83,13 @@ class NameRes(Annotator):
         """
         if props is None:
             props = {}
+
+        flag_skip_cache = False
+        if 'skip_cache' in props and props['skip_cache']:
+            flag_skip_cache = True
+
+        if not flag_skip_cache and text in self.cache:
+            return self.cache[text]
 
         session = self.requests_session
         timeout = props.get("timeout", 120)
@@ -130,4 +141,8 @@ class NameRes(Annotator):
             for result in results
         ]
 
-        return AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations)
+        if not flag_skip_cache:
+            self.cache[text] = final_result
+
+        return final_result

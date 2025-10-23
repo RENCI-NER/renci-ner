@@ -51,10 +51,14 @@ class BioMegatron(Annotator):
         )
         self.logger = logging.getLogger(str(self))
 
+        # Set up a cache.
+        self.cache = {}
+
     def supported_properties(self):
         """Some configurable parameters for BioMegatron (none at present)."""
         return {
-            "timeout": "The timeout in seconds for requests to BioMegatron. Default: 120 seconds."
+            "timeout": "The timeout in seconds for requests to BioMegatron. Default: 120 seconds.",
+            "skip_cache": "Do not use the cache (default: FALSE)",
         }
 
     def annotate(self, text: str, props: dict = None) -> AnnotatedText:
@@ -68,6 +72,13 @@ class BioMegatron(Annotator):
 
         if props is None:
             props = {}
+
+        flag_skip_cache = False
+        if 'skip_cache' in props and props['skip_cache']:
+            flag_skip_cache = True
+
+        if not flag_skip_cache and text in self.cache:
+            return self.cache[text]
 
         session = self.requests_session
         timeout = props.get("timeout", 120)
@@ -108,4 +119,8 @@ class BioMegatron(Annotator):
                 )
             )
 
-        return AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations)
+        if not flag_skip_cache:
+            self.cache[text] = final_result
+
+        return final_result

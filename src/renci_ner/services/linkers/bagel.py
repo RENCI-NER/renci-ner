@@ -206,6 +206,7 @@ class BagelAnnotator(Annotator):
             logging.debug(f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}.")
 
             # Query Bagel.
+            # TODO: make this cacheable.
             request_json = {
                 "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
                 "context": {
