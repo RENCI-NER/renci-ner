@@ -57,6 +57,9 @@ class NodeNorm(Transformer):
         )
         self.logger = logging.getLogger(str(self))
 
+        # Set up a cache.
+        self.cache = {}
+
     def supported_properties(self):
         """Some configurable parameters."""
         return {
@@ -64,6 +67,7 @@ class NodeNorm(Transformer):
             "geneprotein_conflation": "(true/false, default: true) Whether to conflate gene and protein identifiers.",
             "drugchemical_conflation": "(true/false, default: false) Whether to conflate drug and chemical identifiers.",
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
+            "skip_cache": "(true/false, default: false) Skip the cache when normalizing.",
         }
 
     def normalize(self, identifiers, props=None):
@@ -76,6 +80,11 @@ class NodeNorm(Transformer):
         """
         if props is None:
             props = {}
+
+        flag_skip_cache = False
+        if 'skip_cache' in props and props['skip_cache']:
+            flag_skip_cache = True
+
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
 
@@ -83,8 +92,12 @@ class NodeNorm(Transformer):
             logging.debug(f"No identifiers to normalize in NodeNorm.normalize({identifiers}, {props}), ignoring.")
             return {}
 
+        identifiers_to_query = identifiers
+        if not flag_skip_cache:
+            identifiers_to_query = set(identifiers) - self.cache.keys()
+
         data = {
-            "curies": identifiers,
+            "curies": identifiers_to_query,
             "conflate": "true"
             if props.get("geneprotein_conflation", True)
             else "false",
@@ -109,7 +122,19 @@ class NodeNorm(Transformer):
                 f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
             )
             return {}
-        return response.json()
+
+        final_result = {}
+        if not flag_skip_cache:
+            # Update the cache with the new results.
+            final_result = response.json()
+            self.cache.update(final_result)
+
+            # Put the cached identifiers back in.
+            identifiers_to_reinsert = set(identifiers) & self.cache.keys()
+            for identifier in identifiers_to_reinsert:
+                final_result[identifier] = self.cache[identifier]
+
+        return final_result
 
     def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
         """
