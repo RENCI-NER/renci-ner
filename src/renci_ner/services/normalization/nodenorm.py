@@ -94,7 +94,8 @@ class NodeNorm(Transformer):
 
         identifiers_to_query = identifiers
         if not flag_skip_cache:
-            identifiers_to_query = set(identifiers) - self.cache.keys()
+            # Remove identifiers that are already in the cache.
+            identifiers_to_query = list(set(identifiers) - self.cache.keys())
 
         data = {
             "curies": identifiers_to_query,
