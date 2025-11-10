@@ -111,9 +111,6 @@ class NodeNorm(Transformer):
         if props is None:
             props = {}
 
-        session = self.requests_session
-        timeout = props.get("timeout", 120)
-
         ids = list(set(map(lambda a: a.id, annotated_text.annotations)))
         results = self.normalize(ids, props=props)
 
