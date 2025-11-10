@@ -1,4 +1,4 @@
-from renci_ner.core import AnnotatorWithProps, Annotation, AnnotationProvenance
+from renci_ner.core import AnnotatorWithProps, Annotation
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.linkers.nameres import NameRes

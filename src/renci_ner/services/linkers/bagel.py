@@ -16,7 +16,7 @@ import json
 import logging
 import os
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import requests
 import webcolors
