@@ -43,9 +43,38 @@ def test_check():
             AnnotatorWithProps(annotator=babel_sapbert, props={"limit": 10}),
             AnnotatorWithProps(annotator=nameres, props={"limit": 10}),
         ],
+        {
+            # After doing the Bagel-ing, only choose the single best result from Bagel.
+            "limit": 1
+        }
     )
     assert result.text == annotated_text.text
     assert result.annotations == [
+        Annotation(
+                text='orbital cellulitis',
+        id='UMLS:C0743695',
+        label='EYE INFECTION ORBITAL CELLULITIS',
+        type='biolink:Disease',
+        start=3,
+        end=21,
+        provenance=bagel.provenance,
+        based_on=[
+                         Annotation(
+                                 text='orbital cellulitis',
+                         id='I1-',
+                         label='',
+                         type='biolink:Disease',
+                         start=3,
+                         end=21,
+                         provenance=biomegatron.provenance,
+                         based_on=[],
+                         props={},
+                     ),
+                 ],
+        props={
+                      'description': '',
+                  },
+    ),
         Annotation(
             text="orbital cellulitis",
             id="MONDO:0006881",

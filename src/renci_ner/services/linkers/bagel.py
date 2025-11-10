@@ -128,6 +128,7 @@ class BagelAnnotator(Annotator):
         return {
             "timeout": f"The timeout in seconds for requests to Bagel. Default: ${BAGEL_DEFAULT_TIMEOUT} seconds.",
             "bagel_prompt_name": "The name of the Bagel prompt to use. Default: '${BAGEL_PROMPT_NAME}'.",
+            "limit": "The maximum number of results to return.",
         }
 
     def annotate_with(
@@ -148,6 +149,7 @@ class BagelAnnotator(Annotator):
         if props is None:
             props = {}
         timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+        limit = props.get("limit", DEFAULT_LIMIT)
 
         output_annotations = []
         for ann in text.annotations:
@@ -243,7 +245,11 @@ class BagelAnnotator(Annotator):
                     unique_bagel_results_set[bagel_result] = True
 
             # Update annotation with Bagel results.
+            result_count = 0
             for bagel_result in unique_bagel_results:
+                if result_count >= limit:
+                    break
+
                 new_based_on = list(ann.based_on)
                 new_based_on.append(ann)
                 # This is almost certainly a NormalizedAnnotation, but we don't know for sure.
@@ -262,6 +268,7 @@ class BagelAnnotator(Annotator):
                         provenance=self.provenance,
                     )
                 )
+                result_count += 1
 
         return AnnotatedText(text.text, output_annotations)
 
