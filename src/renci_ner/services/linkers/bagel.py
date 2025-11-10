@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 import requests
 import webcolors
-from requests import HTTPError, Session
+from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
 from renci_ner.core import (
@@ -180,6 +180,7 @@ class BagelAnnotator(Annotator):
                                     description = norm_result["id"]["description"]
 
                     # Choose a color.
+                    # TODO: this is ignored by Bagel, so get rid of this!
                     selected_color = random.sample(colors_available, 1)[0]
                     colors_available.remove(selected_color)
 
@@ -281,6 +282,8 @@ class BagelAnnotator(Annotator):
 
         result = response.json()
         # The result here is a list of results. We'll apply all of them.
+        # TODO: the result is actually a dict()! But only one of them should have `"synonym_type": "exact"`, which is
+        # what we want. There are other narrow/broad matches that we probably want to pick up as well.
         bagel_results = list(map(lambda x: BagelResult.from_dict(x), result))
         unique_bagel_results = []
         # Generate a list of unique Bagel results, preserving the original order.
