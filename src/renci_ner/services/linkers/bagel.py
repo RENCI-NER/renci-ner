@@ -181,17 +181,19 @@ class BagelAnnotator(Annotator):
                     selected_color = random.sample(colors_available, 1)[0]
                     colors_available.remove(selected_color)
 
-                    possible_matches.add(BagelResult(
-                        label=result_ann.label,
-                        identifier=result_ann.id,
-                        description=description,
-                        entity_type=entity_type,
-                        # TODO: implement taxa
-                        #   - Should include this for genes and proteins for NameRes
-                        #   - Might be worth putting in a default, but probably not needed.
-                        taxa="",
-                        taxa_ids=""
-                    ))
+                    possible_matches.add(
+                        BagelResult(
+                            label=result_ann.label,
+                            identifier=result_ann.id,
+                            description=description,
+                            entity_type=entity_type,
+                            # TODO: implement taxa
+                            #   - Should include this for genes and proteins for NameRes
+                            #   - Might be worth putting in a default, but probably not needed.
+                            taxa="",
+                            taxa_ids="",
+                        )
+                    )
 
             # If we don't have any possible matches, we can just leave this annotation as-is.
             if len(possible_matches) == 0:
