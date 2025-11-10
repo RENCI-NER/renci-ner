@@ -4,7 +4,6 @@
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
 import logging
-from locale import normalize
 
 import requests
 
