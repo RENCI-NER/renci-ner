@@ -12,6 +12,7 @@
 # Source code: https://github.com/RENCI-NER/bagel
 # Hosted at: https://bagel.apps.renci.org/
 #
+import functools
 import json
 import logging
 import os
@@ -20,7 +21,7 @@ from dataclasses import dataclass
 
 import requests
 import webcolors
-from requests import HTTPError
+from requests import HTTPError, Session
 from requests.auth import HTTPBasicAuth
 
 from renci_ner.core import (
@@ -145,7 +146,6 @@ class BagelAnnotator(Annotator):
         :param annotators: A list of AnnotatorWithProps objects to use for re-annotation.
         :return: An AnnotatedText object containing the re-annotated annotations.
         """
-        session = self.requests_session
         if props is None:
             props = {}
         timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
@@ -202,47 +202,7 @@ class BagelAnnotator(Annotator):
                 output_annotations.append(ann)
                 continue
 
-            # Query Bagel.
-            request_json = {
-                "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
-                "context": {
-                    "text": text.text,  # TODO: We currently give the full text as context, but in the future
-                    # we'll probably want to limit it to +/- 3 sentences or so.
-                    "entity": ann.text,
-                    "synonyms": list(map(lambda x: x.to_dict(), possible_matches)),
-                },
-                "config": {
-                    "llm_model_name": "google/gemma-3-12b-it",
-                    "organization": "",
-                    "access_key": "",
-                    "url": "http://vllm-server/v1",
-                    "llm_model_args": {"top_p": 0.1, "temperature": 0},
-                },
-            }
-            logging.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
-            response = session.post(
-                self.rerank_url,
-                json=request_json,
-                # TODO: make this more configurable.
-                auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
-                timeout=timeout,
-            )
-
-            if not response.ok:
-                raise HTTPError(
-                    f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
-                )
-
-            result = response.json()
-            # The result here is a list of results. We'll apply all of them.
-            bagel_results = list(map(lambda x: BagelResult.from_dict(x), result))
-            unique_bagel_results = []
-            # Generate a list of unique Bagel results, preserving the original order.
-            unique_bagel_results_set = {}
-            for bagel_result in bagel_results:
-                if bagel_result not in unique_bagel_results_set:
-                    unique_bagel_results.append(bagel_result)
-                    unique_bagel_results_set[bagel_result] = True
+            unique_bagel_results = self.query_bagel(ann.text, text.text, tuple(possible_matches), json.dumps(props, sort_keys=True))
 
             # Update annotation with Bagel results.
             result_count = 0
@@ -271,6 +231,65 @@ class BagelAnnotator(Annotator):
                 result_count += 1
 
         return AnnotatedText(text.text, output_annotations)
+
+    @functools.cache
+    def query_bagel(self, entity_text: str, context_text: str, possible_matches: tuple[BagelResult], props_json: str) -> list[BagelResult]:
+        """
+        Query Bagel.
+
+        :param entity_text: The entity text to query for.
+        :param context_text: The context text that the entity text is found in.
+        :param possible_matches: The possible matches to query for (we store these as a tuple of BagelResult objects).
+        :param props_json: Properties to use with Bagel. This is really a dictionary, but we turn it into a JSON string for memoization.
+        :return: A list of BagelResult objects.
+        """
+
+        session = self.requests_session
+        props = json.loads(props_json)
+        timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+
+        request_json = {
+            "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
+            "context": {
+                # TODO: We currently give the full text as context, but in the future
+                # we'll probably want to limit it to +/- 3 sentences or so.
+                "text": context_text,
+                "entity": entity_text,
+                "synonyms": list(map(lambda x: x.to_dict(), possible_matches)),
+            },
+            "config": {
+                "llm_model_name": "google/gemma-3-12b-it",
+                "organization": "",
+                "access_key": "",
+                "url": "http://vllm-server/v1",
+                "llm_model_args": {"top_p": 0.1, "temperature": 0},
+            },
+        }
+        logging.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
+        response = session.post(
+            self.rerank_url,
+            json=request_json,
+            # TODO: make this more configurable.
+            auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
+            timeout=timeout,
+        )
+
+        if not response.ok:
+            raise HTTPError(
+                f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
+            )
+
+        result = response.json()
+        # The result here is a list of results. We'll apply all of them.
+        bagel_results = list(map(lambda x: BagelResult.from_dict(x), result))
+        unique_bagel_results = []
+        # Generate a list of unique Bagel results, preserving the original order.
+        unique_bagel_results_set = {}
+        for bagel_result in bagel_results:
+            if bagel_result not in unique_bagel_results_set:
+                unique_bagel_results.append(bagel_result)
+                unique_bagel_results_set[bagel_result] = True
+        return unique_bagel_results
 
     def annotate(self, text, props=None) -> AnnotatedText:
         """
