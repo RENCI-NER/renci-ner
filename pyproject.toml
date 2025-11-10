@@ -20,6 +20,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "requests>=2.32.3",
+    "webcolors>=25.10.0",
 ]
 
 [build-system]
