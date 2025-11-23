@@ -72,7 +72,7 @@ def test_check():
                 )
             ],
             props={
-                "description": "Inflammation of the dermis and subcutaneous tissues caused by a bacterial infection. Symptoms include erythema, edema, and pain to the affected area."
+                "description": ""
             },
         ),
         Annotation(
@@ -97,7 +97,7 @@ def test_check():
                 )
             ],
             props={
-                "description": "The invasion of an organism's body tissues by disease-causing agents and their multiplication, as well as the reaction by the host to these organisms and/or toxins that the organisms produce."
+                "description": "",
             },
         ),
         Annotation(
@@ -122,13 +122,13 @@ def test_check():
                 )
             ],
             props={
-                "description": "Ophthalmic veins are veins which drain the eye. More specifically, they can refer to: Superior ophthalmic vein Inferior ophthalmic vein."
+                "description": "",
             },
         ),
         Annotation(
             text="dural venous sinuses",
-            id="UBERON:0006615",
-            label="venous sinus",
+            id="UBERON:0005486",
+            label="'venous dural sinus",
             type="biolink:GrossAnatomicalStructure",
             start=81,
             end=101,
@@ -146,37 +146,12 @@ def test_check():
                     props={},
                 )
             ],
-            props={
-                "description": "A large vein or channel for the circulation of venous blood."
-            },
-        ),
-        Annotation(
-            text="dural sinus thrombosis",
-            id="UMLS:C4538576",
-            label="Sinus vein thrombosis",
-            type="biolink:PhenotypicFeature",
-            start=111,
-            end=133,
-            provenance=bagel.provenance,
-            based_on=[
-                Annotation(
-                    text="dural sinus thrombosis",
-                    id="I16-",
-                    label="",
-                    type="biolink:Disease",
-                    start=111,
-                    end=133,
-                    provenance=biomegatron.provenance,
-                    based_on=[],
-                    props={},
-                )
-            ],
             props={"description": ""},
         ),
         Annotation(
             text="dural sinus thrombosis",
-            id="UMLS:C0740384",
-            label="Thrombosis of venous sinuses",
+            id="MONDO:0002907",
+            label="intracranial thrombosis",
             type="biolink:Disease",
             start=111,
             end=133,

@@ -63,7 +63,7 @@ class NodeNorm(Transformer):
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
         }
 
-    def normalize(self, identifiers, props=None):
+    def normalize(self, identifiers: list[str], props=None):
         """
         Normalize a list of identifiers using NodeNorm.
 
@@ -80,13 +80,9 @@ class NodeNorm(Transformer):
             self.get_normalized_nodes_url,
             json={
                 "curies": identifiers,
-                "conflate": "true"
-                if props.get("geneprotein_conflation", True)
-                else "false",
-                "drug_chemical_conflate": "true"
-                if props.get("drugchemical_conflation", False)
-                else "false",
-                "description": "true" if props.get("description", False) else "false",
+                "conflate": props.get("geneprotein_conflation", True),
+                "drug_chemical_conflate": props.get("drugchemical_conflation", False),
+                "description": props.get("description", False),
             },
             timeout=timeout,
         )

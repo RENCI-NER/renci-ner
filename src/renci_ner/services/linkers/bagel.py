@@ -181,7 +181,7 @@ class BagelAnnotator(Annotator):
                     description = ""
 
                     normalized = self.nodenorm.normalize(
-                        [identifier], {"description": True}
+                        [identifier], {"description": True, "timeout": timeout }
                     )
                     if identifier in normalized:
                         norm_result = normalized[identifier]
