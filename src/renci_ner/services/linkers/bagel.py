@@ -83,6 +83,19 @@ class BagelResult:
             "synonym_type": self.synonym_type,
         }
 
+    @staticmethod
+    def get_synonym_type_order_key(br) -> int:
+        if not br:
+            return 999
+
+        if br.synonym_type == "exact":
+            return 1
+        if br.synonym_type in {"broad", "narrow"}:
+            return 2
+        if br.synonym_type == "related":
+            return 3
+        raise RuntimeError(f"Unknown synonym type found in {br}: {br.synonym_type}")
+
 
 class BagelAnnotator(Annotator):
     """
@@ -281,10 +294,12 @@ class BagelAnnotator(Annotator):
             )
 
         result = response.json()
-        # The result here is a list of results. We'll apply all of them.
-        # TODO: the result is actually a dict()! But only one of them should have `"synonym_type": "exact"`, which is
-        # what we want. There are other narrow/broad matches that we probably want to pick up as well.
-        bagel_results = list(map(lambda x: BagelResult.from_dict(x), result))
+        logging.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
+
+        # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
+        # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
+        # sort later.
+        bagel_results = sorted(map(lambda x: BagelResult.from_dict(x), result), key=BagelResult.get_synonym_type_order_key)
         unique_bagel_results = []
         # Generate a list of unique Bagel results, preserving the original order.
         unique_bagel_results_set = {}
