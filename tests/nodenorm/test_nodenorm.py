@@ -10,23 +10,27 @@ from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
+
 def test_check():
     nodenorm = NodeNorm()
-    results = nodenorm.normalize(["UMLS:C1412149"], {
-        "geneprotein_conflation": True,
-        "description": True,
-    })
+    results = nodenorm.normalize(
+        ["UMLS:C1412149"],
+        {
+            "geneprotein_conflation": True,
+            "description": True,
+        },
+    )
     assert len(results) == 1
     assert "UMLS:C1412149" in results
 
     umls_C1412149 = results["UMLS:C1412149"]
     assert "id" in umls_C1412149
     assert umls_C1412149["id"] == {
-        'identifier': 'NCBIGene:71',
-        'label': 'ACTG1',
+        "identifier": "NCBIGene:71",
+        "label": "ACTG1",
     }
     assert "information_content" in umls_C1412149
-    assert umls_C1412149["taxa"] == [ 'NCBITaxon:9606' ]
+    assert umls_C1412149["taxa"] == ["NCBITaxon:9606"]
 
 
 def test_with_transform():
@@ -93,11 +97,13 @@ def test_with_transform():
                     ],
                 },
             )
-        ]
+        ],
     )
 
     nodenorm = NodeNorm()
-    result_nodenorm = annotated_text.transform(nodenorm, {"geneprotein_conflation": True})
+    result_nodenorm = annotated_text.transform(
+        nodenorm, {"geneprotein_conflation": True}
+    )
 
     assert result_nodenorm == AnnotatedText(
         "What does actin do?",
@@ -147,7 +153,7 @@ def test_with_transform():
                         ],
                         props={
                             "highlighting": {},
-                            'ic': None,
+                            "ic": None,
                             "taxa": [
                                 "NCBITaxon:9606",
                             ],
@@ -173,7 +179,7 @@ def test_with_transform():
                 ],
                 props={
                     "highlighting": {},
-                    'ic': None,
+                    "ic": None,
                     "taxa": [
                         "NCBITaxon:9606",
                     ],

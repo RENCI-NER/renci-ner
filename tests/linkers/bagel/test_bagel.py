@@ -30,9 +30,7 @@ def test_check():
         pytest.skip(f"BioMegatron is not available: {err}")
         return
 
-    text = (
-        "In orbital cellulitis, an infection travels through the ophthalmic vein into the eye socket."
-    )
+    text = "In orbital cellulitis, an infection travels through the ophthalmic vein into the eye socket."
     annotated_text = biomegatron.annotate(text)
 
     bagel = BagelAnnotator()
@@ -48,7 +46,7 @@ def test_check():
             # Make this as predictable/repeatable as possible.
             "temperature": 0,
             "top_p": 0.5,
-        }
+        },
     )
     assert result.text == annotated_text.text
     assert result.annotations == [
@@ -74,7 +72,7 @@ def test_check():
                 )
             ],
             props={
-                "description": 'Inflammation of the eye tissues posterior to the orbital septum, and generally secondary to an infection spread from adjacent sinuses. Signs and symptoms of the affected eye include sudden loss of vision, erythema, edema, decreased eye movement, and pain. Treatment is conducted via intravenous antibiotics, observation, and surgical intervention when necessary.',
+                "description": "Inflammation of the eye tissues posterior to the orbital septum, and generally secondary to an infection spread from adjacent sinuses. Signs and symptoms of the affected eye include sudden loss of vision, erythema, edema, decreased eye movement, and pain. Treatment is conducted via intravenous antibiotics, observation, and surgical intervention when necessary.",
             },
         ),
         Annotation(
@@ -128,28 +126,28 @@ def test_check():
             },
         ),
         Annotation(
-text='eye socket',
-id='UMLS:C2371860',
-label='Structure of eye socket',
-type='biolink:AnatomicalEntity',
-start=81,
-end=91,
-provenance=bagel.provenance,
-based_on=[
-Annotation(
-text='eye socket',
-id='I12-',
-label='',
-type='biolink:AnatomicalEntity',
-start=81,
-end=91,
-provenance=biomegatron.provenance,
-based_on=[],
-props={},
-),
-],
-props={
-'description': '',
-},
-),
+            text="eye socket",
+            id="UMLS:C2371860",
+            label="Structure of eye socket",
+            type="biolink:AnatomicalEntity",
+            start=81,
+            end=91,
+            provenance=bagel.provenance,
+            based_on=[
+                Annotation(
+                    text="eye socket",
+                    id="I12-",
+                    label="",
+                    type="biolink:AnatomicalEntity",
+                    start=81,
+                    end=91,
+                    provenance=biomegatron.provenance,
+                    based_on=[],
+                    props={},
+                ),
+            ],
+            props={
+                "description": "",
+            },
+        ),
     ]

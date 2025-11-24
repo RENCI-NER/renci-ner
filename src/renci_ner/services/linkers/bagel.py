@@ -119,6 +119,7 @@ class BagelResult:
 
         return synonym_type_order, identical_synonym_type_order
 
+
 class BagelAnnotator(Annotator):
     """
     Provides an Annotator interface to a BAGEL service.
@@ -205,7 +206,7 @@ class BagelAnnotator(Annotator):
                     description = ""
 
                     normalized = self.nodenorm.normalize(
-                        [identifier], {"description": True, "timeout": timeout }
+                        [identifier], {"description": True, "timeout": timeout}
                     )
                     if identifier in normalized:
                         norm_result = normalized[identifier]
@@ -240,7 +241,12 @@ class BagelAnnotator(Annotator):
                 output_annotations.append(ann)
                 continue
 
-            unique_bagel_results = self.query_bagel(ann.text, text.text, tuple(possible_matches), json.dumps(bagel_props, sort_keys=True))
+            unique_bagel_results = self.query_bagel(
+                ann.text,
+                text.text,
+                tuple(possible_matches),
+                json.dumps(bagel_props, sort_keys=True),
+            )
 
             # Update annotation with Bagel results.
             result_count = 0
@@ -271,7 +277,13 @@ class BagelAnnotator(Annotator):
         return AnnotatedText(text.text, output_annotations)
 
     @functools.cache
-    def query_bagel(self, entity_text: str, context_text: str, possible_matches: tuple[BagelResult], props_json: str) -> list[BagelResult]:
+    def query_bagel(
+        self,
+        entity_text: str,
+        context_text: str,
+        possible_matches: tuple[BagelResult],
+        props_json: str,
+    ) -> list[BagelResult]:
         """
         Query Bagel.
 
@@ -300,7 +312,10 @@ class BagelAnnotator(Annotator):
                 "organization": "",
                 "access_key": "",
                 "url": "http://vllm-server/v1",
-                "llm_model_args": {"top_p": props.get("top_p", DEFAULT_TOP_P), "temperature": props.get("temperature", DEFAULT_TEMPERATURE)},
+                "llm_model_args": {
+                    "top_p": props.get("top_p", DEFAULT_TOP_P),
+                    "temperature": props.get("temperature", DEFAULT_TEMPERATURE),
+                },
             },
         }
         print(f"Bagel request: {json.dumps(request_json, indent=2)}")
@@ -323,8 +338,13 @@ class BagelAnnotator(Annotator):
         # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
         # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
         # sort later.
-        bagel_results = sorted(map(lambda x: BagelResult.from_dict(x), result), key=BagelResult.get_bagel_sort_key)
-        print(f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2,sort_keys=True)}")
+        bagel_results = sorted(
+            map(lambda x: BagelResult.from_dict(x), result),
+            key=BagelResult.get_bagel_sort_key,
+        )
+        print(
+            f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2, sort_keys=True)}"
+        )
 
         unique_bagel_results = []
         # Generate a list of unique Bagel results, preserving the original order.
