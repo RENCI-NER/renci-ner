@@ -16,11 +16,9 @@ import functools
 import json
 import logging
 import os
-import random
 from dataclasses import dataclass
 
 import requests
-import webcolors
 from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
@@ -192,7 +190,6 @@ class BagelAnnotator(Annotator):
         output_annotations = []
         for ann in text.annotations:
             possible_matches = set()
-            colors_available = list(set(webcolors.names(spec=webcolors.CSS3)))
 
             # Run it through every annotator, and collect all the resulting matches.
             for annotator_with_props in annotators:
@@ -216,11 +213,6 @@ class BagelAnnotator(Annotator):
                             if "id" in norm_result:
                                 if "description" in norm_result:
                                     description = norm_result["description"]
-
-                    # Choose a color.
-                    # TODO: this is ignored by Bagel, so get rid of this!
-                    selected_color = random.sample(colors_available, 1)[0]
-                    colors_available.remove(selected_color)
 
                     possible_matches.add(
                         BagelResult(
