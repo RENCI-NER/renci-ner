@@ -2,7 +2,8 @@
 import json
 import logging
 
-def log_http_403_errors(text: str, url: str = None, data = None, logger = None) -> None:
+
+def log_http_403_errors(text: str, url: str = None, data=None, logger=None) -> None:
     """
     We sometimes have text that will repeatably trigger a 403 error (probably because it hits up against something
     in the RENCI ingress). This function is intended to log the text that triggered these errors so that we can
@@ -27,9 +28,9 @@ def log_http_403_errors(text: str, url: str = None, data = None, logger = None) 
 
     if data:
         logger.warning(
-            f"Received HTTP 403 error when sending data to URL {url}: text=\"{text}\", data={json.dumps(data, indent=2)}"
+            f'Received HTTP 403 error when sending data to URL {url}: text="{text}", data={json.dumps(data, indent=2)}'
         )
     else:
         logger.warning(
-            f"Received HTTP 403 error when sending text to URL {url}: \"{text}\""
+            f'Received HTTP 403 error when sending text to URL {url}: "{text}"'
         )

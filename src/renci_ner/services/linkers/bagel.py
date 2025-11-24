@@ -191,7 +191,9 @@ class BagelAnnotator(Annotator):
 
         output_annotations = []
         for index, ann in enumerate(text.annotations):
-            logging.debug(f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})")
+            logging.debug(
+                f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})"
+            )
             possible_matches = set()
 
             # Run it through every annotator, and collect all the resulting matches.
@@ -231,14 +233,18 @@ class BagelAnnotator(Annotator):
                         )
                     )
 
-                logging.debug(f"Found {len(possible_matches)} possible matches for '{ann.text}' with annotator {annotator_with_props}.")
+                logging.debug(
+                    f"Found {len(possible_matches)} possible matches for '{ann.text}' with annotator {annotator_with_props}."
+                )
 
             # If we don't have any possible matches, we can just leave this annotation as-is.
             if len(possible_matches) == 0:
                 output_annotations.append(ann)
                 continue
 
-            logging.debug(f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}.")
+            logging.debug(
+                f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}."
+            )
 
             unique_bagel_results = self.query_bagel(
                 ann.text,
@@ -326,15 +332,17 @@ class BagelAnnotator(Annotator):
             timeout=timeout,
         )
 
-            # 403 errors probably mean that the RENCI Ingress is catching something it shouldn't.
-            if response.status_code == 403:
-                log_http_403_errors(text.text, self.rerank_url, request_json, logger=self.logger)
-                continue
+        # 403 errors probably mean that the RENCI Ingress is catching something it shouldn't.
+        # Don't throw an error here, just log it and move on.
+        if response.status_code == 403:
+            log_http_403_errors(
+                entity_text + "\n" + context_text,
+                self.rerank_url,
+                request_json,
+                logger=self.logger,
+            )
+            return []
 
-            if not response.ok:
-                raise HTTPError(
-                    f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
-                )
         if not response.ok:
             raise HTTPError(
                 f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"

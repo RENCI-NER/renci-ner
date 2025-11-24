@@ -74,7 +74,7 @@ class BioMegatron(Annotator):
             props = {}
 
         flag_skip_cache = False
-        if 'skip_cache' in props and props['skip_cache']:
+        if "skip_cache" in props and props["skip_cache"]:
             flag_skip_cache = True
 
         if not flag_skip_cache and text in self.cache:

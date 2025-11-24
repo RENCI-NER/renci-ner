@@ -10,16 +10,6 @@ from renci_ner.services.ner.biomegatron import BioMegatron
 
 def test_check():
     """Check that Bagel can be used as intended."""
-    try:
-        biomegatron = BioMegatron()
-    except HTTPError as err:
-        pytest.skip(f"BioMegatron is not available: {err}")
-        return
-    text = (
-        "In orbital cellulitis, an infection travels through the ophthalmic vein into the dural venous sinuses, "
-        + "causing dural sinus thrombosis."
-    )
-
     # Make sure all three services are available.
     try:
         biomegatron = BioMegatron()
@@ -110,7 +100,7 @@ def test_check():
                 )
             ],
             props={
-                "description": "The invasion of an organism's body tissues by disease-causing agents and their multiplication, as well as the reaction by the host to these organisms and/or toxins that the organisms produce.",
+                "description": "",
             },
         ),
         Annotation(

@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 # HELPER FUNCTIONS
 
+
 def get_novel_column_name(new_column: str, old_columns: list):
     """
     Given a list of old columns, find a version of $new_column that
@@ -48,7 +49,9 @@ def get_novel_column_name(new_column: str, old_columns: list):
 )
 @click.option(
     "--method",
-    type=click.Choice(["biomegatron-sapbert", "biomegatron-nameres", "biomegatron-bagel"]),
+    type=click.Choice(
+        ["biomegatron-sapbert", "biomegatron-nameres", "biomegatron-bagel"]
+    ),
     default="biomegatron-sapbert",
     help="NER method",
 )
@@ -60,7 +63,8 @@ def get_novel_column_name(new_column: str, old_columns: list):
     help="Output file",
 )
 @click.option(
-    "--output-format", "-f",
+    "--output-format",
+    "-f",
     type=click.Choice(["csv", "tsv", "jsonl"]),
     default="csv",
     help="Output format",
@@ -81,18 +85,18 @@ def get_novel_column_name(new_column: str, old_columns: list):
     help="Allow duplicate IDs in output.",
 )
 @click.option(
-    '--retries',
+    "--retries",
     type=int,
     default=10,
-    help='Number of retries for failed requests',
+    help="Number of retries for failed requests",
 )
 @click.option(
-    '--continue-jsonl',
+    "--continue-jsonl",
     type=click.Path(exists=False, file_okay=True, dir_okay=False),
-    help='A JSONL output file to continue from',
+    help="A JSONL output file to continue from",
 )
 @click.option(
-    '--verbose', '-v', is_flag=True, default=False, help='Enable verbose logging'
+    "--verbose", "-v", is_flag=True, default=False, help="Enable verbose logging"
 )
 def renci_ner(
     input_files,
@@ -124,7 +128,9 @@ def renci_ner(
     input_filenames = list(map(click.format_filename, input_files))
     output_filename = click.format_filename(output)
     columns = column
-    continue_jsonl_filename = click.format_filename(continue_jsonl) if continue_jsonl else None
+    continue_jsonl_filename = (
+        click.format_filename(continue_jsonl) if continue_jsonl else None
+    )
 
     # TODO: if output_format is not set, we should guess it from the extension on output_filename.
 
@@ -138,10 +144,10 @@ def renci_ner(
         total=retries,
         backoff_factor=0.1,
         status_forcelist=[500, 502, 503, 504],
-        allowed_methods={'GET', 'POST'},
+        allowed_methods={"GET", "POST"},
     )
-    session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retry))
-    session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retry))
+    session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
+    session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
 
     # Load up the continue data if specified.
     text_already_processed = dict()
@@ -151,7 +157,9 @@ def renci_ner(
                 data = json.loads(line)
                 if "text" in data:
                     text_already_processed[data["text"]] = data
-        logging.info(f"Loaded {len(text_already_processed)} text already processed entries from continue JSONL file {continue_jsonl_filename}.")
+        logging.info(
+            f"Loaded {len(text_already_processed)} text already processed entries from continue JSONL file {continue_jsonl_filename}."
+        )
 
     # Set up the pipeline.
     if method == "biomegatron-sapbert":
@@ -160,24 +168,36 @@ def renci_ner(
             sapbert_annotations = (
                 BioMegatron(requests_session=session)
                 .annotate(text)
-                .reannotate(BabelSAPBERTAnnotator(requests_session=session), {"limit": ner_limit})
+                .reannotate(
+                    BabelSAPBERTAnnotator(requests_session=session),
+                    {"limit": ner_limit},
+                )
             )
             return NodeNorm(requests_session=session).transform(sapbert_annotations)
     elif method == "biomegatron-nameres":
 
         def ner_method(text):
             return (
-                BioMegatron(requests_session=session).annotate(text).reannotate(NameRes(requests_session=session), {"limit": ner_limit})
+                BioMegatron(requests_session=session)
+                .annotate(text)
+                .reannotate(NameRes(requests_session=session), {"limit": ner_limit})
             )
 
     elif method == "biomegatron-bagel":
+
         def ner_method(text):
             annotated_text = BioMegatron(requests_session=session).annotate(text)
             return BagelAnnotator(requests_session=session).annotate_with(
                 annotated_text,
                 [
-                    AnnotatorWithProps(annotator=BabelSAPBERTAnnotator(requests_session=session), props={"limit": ner_limit}),
-                    AnnotatorWithProps(annotator=NameRes(requests_session=session), props={"limit": ner_limit}),
+                    AnnotatorWithProps(
+                        annotator=BabelSAPBERTAnnotator(requests_session=session),
+                        props={"limit": ner_limit},
+                    ),
+                    AnnotatorWithProps(
+                        annotator=NameRes(requests_session=session),
+                        props={"limit": ner_limit},
+                    ),
                 ],
             )
 
@@ -217,16 +237,20 @@ def renci_ner(
                     ner_text_column = get_novel_column_name("ner_text", old_columns)
                     ner_label_column = get_novel_column_name("ner_label", old_columns)
                     ner_curie_column = get_novel_column_name("ner_curie", old_columns)
-                    ner_biolink_type_column = get_novel_column_name("ner_biolink_type", old_columns)
+                    ner_biolink_type_column = get_novel_column_name(
+                        "ner_biolink_type", old_columns
+                    )
 
                     output_fields = old_columns + [
                         ner_text_column,
                         ner_label_column,
                         ner_curie_column,
-                        ner_biolink_type_column
+                        ner_biolink_type_column,
                     ]
                     writer = (
-                        csv.DictWriter(outputf, dialect="excel", fieldnames=output_fields)
+                        csv.DictWriter(
+                            outputf, dialect="excel", fieldnames=output_fields
+                        )
                         if output_format == "csv"
                         else csv.DictWriter(
                             outputf, dialect="excel_tab", fieldnames=output_fields
@@ -238,7 +262,11 @@ def renci_ner(
                         logging.info(f"Processing row: {row}")
 
                         ner_text = "\n".join(
-                            [row[column] for column in columns if row[column].strip() != ""]
+                            [
+                                row[column]
+                                for column in columns
+                                if row[column].strip() != ""
+                            ]
                         )
 
                         if ner_text.strip() == "":
@@ -286,12 +314,20 @@ def renci_ner(
                         logging.info(f"Processing row: {row}")
 
                         ner_text = "\n".join(
-                            [row[column] for column in columns if row[column].strip() != ""]
+                            [
+                                row[column]
+                                for column in columns
+                                if row[column].strip() != ""
+                            ]
                         )
 
                         if ner_text in text_already_processed:
-                            logging.info(f" - Text already processed, returning previous entry: '{ner_text}'")
-                            outputf.write(json.dumps(text_already_processed[ner_text]) + "\n")
+                            logging.info(
+                                f" - Text already processed, returning previous entry: '{ner_text}'"
+                            )
+                            outputf.write(
+                                json.dumps(text_already_processed[ner_text]) + "\n"
+                            )
                             count_outputs += 1
                             continue
 
@@ -305,9 +341,12 @@ def renci_ner(
                         outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
                         count_outputs += 1
 
-                    logging.info(f"Wrote {count_outputs} JSON lines to {output_filename}.")
+                    logging.info(
+                        f"Wrote {count_outputs} JSON lines to {output_filename}."
+                    )
                 else:
                     raise ValueError(f"Unsupported output format: {output_format}")
+
 
 if __name__ == "__main__":
     renci_ner()

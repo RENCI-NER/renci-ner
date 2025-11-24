@@ -272,6 +272,7 @@ class AnnotatedText:
             "annotations": [annotation.to_dict() for annotation in self.annotations],
         }
 
+
 class Annotator:
     """
     An interface for a service that can annotate text.
