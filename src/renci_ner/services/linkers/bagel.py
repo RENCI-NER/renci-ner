@@ -39,6 +39,8 @@ RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
 BAGEL_PROMPT_NAME = "bagel/ask_classes"
 DEFAULT_LIMIT = 10
 BAGEL_DEFAULT_TIMEOUT = 120
+DEFAULT_TOP_P = 1.0
+DEFAULT_TEMPERATURE = 0.0
 
 # Load BAGEL_USERNAME and BAGEL_PASSWORD from the environment.
 BAGEL_USERNAME = os.environ.get("BAGEL_USERNAME")
@@ -84,18 +86,38 @@ class BagelResult:
         }
 
     @staticmethod
-    def get_synonym_type_order_key(br) -> int:
+    def get_bagel_sort_key(br) -> tuple:
+        if not isinstance(br, BagelResult):
+            raise TypeError(
+                f"get_synonym_type_order_key({br}) called, but we can only work with BagelResult objects, got {type(br)} instead."
+            )
+
         if not br:
-            return 999
+            return 999, 999
+
+        # We need to sort in two ways:
+        # - Bagel results are marked as exact, broad, narrow or related. We want to sort exact matches first, followed by the others.
+        # - If we have multiple matches in a category, we want to figure out some way of choosing one.
+        #   - For now, let's just demote UMLS.
+        synonym_type_order = 0
+        identical_synonym_type_order = 0
 
         if br.synonym_type == "exact":
-            return 1
-        if br.synonym_type in {"broad", "narrow"}:
-            return 2
-        if br.synonym_type == "related":
-            return 3
-        raise RuntimeError(f"Unknown synonym type found in {br}: {br.synonym_type}")
+            synonym_type_order = 1
+        elif br.synonym_type in {"broad", "narrow"}:
+            synonym_type_order = 2
+        elif br.synonym_type == "related":
+            synonym_type_order = 3
+        else:
+            raise RuntimeError(f"Unknown synonym type found in {br}: {br.synonym_type}")
 
+        curie_prefix = br.identifier.split(":", 2)[0].upper()
+        if curie_prefix == "UMLS":
+            identical_synonym_type_order = 999
+        else:
+            identical_synonym_type_order = 0
+
+        return synonym_type_order, identical_synonym_type_order
 
 class BagelAnnotator(Annotator):
     """
@@ -142,6 +164,8 @@ class BagelAnnotator(Annotator):
         return {
             "timeout": f"The timeout in seconds for requests to Bagel. Default: ${BAGEL_DEFAULT_TIMEOUT} seconds.",
             "bagel_prompt_name": "The name of the Bagel prompt to use. Default: '${BAGEL_PROMPT_NAME}'.",
+            "temperature": f"The temperature to use for the LLM (default: {DEFAULT_TEMPERATURE}).",
+            "top_p": f"The top_p to use for the LLM (default: {DEFAULT_TOP_P}).",
             "limit": "The maximum number of results to return.",
         }
 
@@ -149,20 +173,20 @@ class BagelAnnotator(Annotator):
         self,
         text: AnnotatedText,
         annotators: list[AnnotatorWithProps],
-        props: dict = None,
+        bagel_props: dict = None,
     ) -> AnnotatedText:
         """
         Given an AnnotatedText, re-annotate it using the given list of AnnotatorWithProps objects.
 
-        :param props: Properties to use with Bagel.
+        :param bagel_props: Properties to use with Bagel.
         :param text: An AnnotatedText containing annotations that need to be linked.
         :param annotators: A list of AnnotatorWithProps objects to use for re-annotation.
         :return: An AnnotatedText object containing the re-annotated annotations.
         """
-        if props is None:
-            props = {}
-        timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
-        limit = props.get("limit", DEFAULT_LIMIT)
+        if bagel_props is None:
+            bagel_props = {}
+        timeout = bagel_props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+        limit = bagel_props.get("limit", DEFAULT_LIMIT)
 
         output_annotations = []
         for ann in text.annotations:
@@ -172,9 +196,9 @@ class BagelAnnotator(Annotator):
             # Run it through every annotator, and collect all the resulting matches.
             for annotator_with_props in annotators:
                 annotator = annotator_with_props.annotator
-                props = annotator_with_props.props
+                annotator_props = annotator_with_props.props
 
-                result = annotator.annotate(ann.text, props)
+                result = annotator.annotate(ann.text, annotator_props)
                 for result_ann in result.annotations:
                     identifier = result_ann.id
                     entity_type = result_ann.type
@@ -189,8 +213,8 @@ class BagelAnnotator(Annotator):
                             if "type" in norm_result:
                                 entity_type = norm_result["type"][0]
                             if "id" in norm_result:
-                                if "description" in norm_result["id"]:
-                                    description = norm_result["id"]["description"]
+                                if "description" in norm_result:
+                                    description = norm_result["description"]
 
                     # Choose a color.
                     # TODO: this is ignored by Bagel, so get rid of this!
@@ -216,7 +240,7 @@ class BagelAnnotator(Annotator):
                 output_annotations.append(ann)
                 continue
 
-            unique_bagel_results = self.query_bagel(ann.text, text.text, tuple(possible_matches), json.dumps(props, sort_keys=True))
+            unique_bagel_results = self.query_bagel(ann.text, text.text, tuple(possible_matches), json.dumps(bagel_props, sort_keys=True))
 
             # Update annotation with Bagel results.
             result_count = 0
@@ -276,10 +300,10 @@ class BagelAnnotator(Annotator):
                 "organization": "",
                 "access_key": "",
                 "url": "http://vllm-server/v1",
-                "llm_model_args": {"top_p": 0.1, "temperature": 0},
+                "llm_model_args": {"top_p": props.get("top_p", DEFAULT_TOP_P), "temperature": props.get("temperature", DEFAULT_TEMPERATURE)},
             },
         }
-        logging.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
+        print(f"Bagel request: {json.dumps(request_json, indent=2)}")
         response = session.post(
             self.rerank_url,
             json=request_json,
@@ -299,7 +323,9 @@ class BagelAnnotator(Annotator):
         # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
         # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
         # sort later.
-        bagel_results = sorted(map(lambda x: BagelResult.from_dict(x), result), key=BagelResult.get_synonym_type_order_key)
+        bagel_results = sorted(map(lambda x: BagelResult.from_dict(x), result), key=BagelResult.get_bagel_sort_key)
+        print(f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2,sort_keys=True)}")
+
         unique_bagel_results = []
         # Generate a list of unique Bagel results, preserving the original order.
         unique_bagel_results_set = {}

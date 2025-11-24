@@ -45,7 +45,10 @@ def test_check():
         ],
         {
             # After doing the Bagel-ing, only choose the single best result from Bagel.
-            "limit": 1
+            "limit": 1,
+            # Make this as predictable as possible.
+            "temperature": 0.01,
+            "top_p": 0.5,
         }
     )
     assert result.text == annotated_text.text
@@ -72,7 +75,7 @@ def test_check():
                 )
             ],
             props={
-                "description": ""
+                "description": 'Inflammation of the eye tissues posterior to the orbital septum, and generally secondary to an infection spread from adjacent sinuses. Signs and symptoms of the affected eye include sudden loss of vision, erythema, edema, decreased eye movement, and pain. Treatment is conducted via intravenous antibiotics, observation, and surgical intervention when necessary.',
             },
         ),
         Annotation(
@@ -97,7 +100,7 @@ def test_check():
                 )
             ],
             props={
-                "description": "",
+                "description": "The invasion of an organism's body tissues by disease-causing agents and their multiplication, as well as the reaction by the host to these organisms and/or toxins that the organisms produce.",
             },
         ),
         Annotation(
@@ -122,13 +125,13 @@ def test_check():
                 )
             ],
             props={
-                "description": "",
+                "description": "Ophthalmic veins are veins which drain the eye. More specifically, they can refer to: Superior ophthalmic vein Inferior ophthalmic vein.",
             },
         ),
         Annotation(
             text="dural venous sinuses",
             id="UBERON:0005486",
-            label="'venous dural sinus",
+            label="venous dural sinus",
             type="biolink:GrossAnatomicalStructure",
             start=81,
             end=101,
@@ -146,7 +149,7 @@ def test_check():
                     props={},
                 )
             ],
-            props={"description": ""},
+            props={"description": "A venous channel found between layers of dura mater in the brain. Receives blood from internal and external veins of the brain, receive cerebrospinal fluid (CSF) from the subarachnoid space, and ultimately empty into the internal jugular vein."},
         ),
         Annotation(
             text="dural sinus thrombosis",
@@ -169,6 +172,6 @@ def test_check():
                     props={},
                 )
             ],
-            props={"description": ""},
+            props={"description": 'Formation or presence of a blood clot (thrombus) in a blood vessel within the skull. Intracranial thrombosis can lead to thrombotic occlusions and brain infarction. The majority of the thrombotic occlusions are associated with atherosclerosis.'},
         ),
     ]
