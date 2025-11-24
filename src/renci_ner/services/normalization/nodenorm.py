@@ -82,14 +82,16 @@ class NodeNorm(Transformer):
             props = {}
 
         flag_skip_cache = False
-        if 'skip_cache' in props and props['skip_cache']:
+        if "skip_cache" in props and props["skip_cache"]:
             flag_skip_cache = True
 
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
 
         if len(identifiers) == 0:
-            logging.debug(f"No identifiers to normalize in NodeNorm.normalize({identifiers}, {props}), ignoring.")
+            logging.debug(
+                f"No identifiers to normalize in NodeNorm.normalize({identifiers}, {props}), ignoring."
+            )
             return {}
 
         identifiers_to_query = identifiers
@@ -97,43 +99,46 @@ class NodeNorm(Transformer):
             # Remove identifiers that are already in the cache.
             identifiers_to_query = list(set(identifiers) - self.cache.keys())
 
-        data = {
-            "curies": identifiers_to_query,
-            "conflate":  props.get("geneprotein_conflation", True)
-            ,
-            "drug_chemical_conflate": props.get("drugchemical_conflation", False),
-
-            "description": props.get("description", False),
-        }
-        response = session.post(
-            self.get_normalized_nodes_url,
-            json=data,
-            timeout=timeout,
-        )
-
-        if response.status_code == 403:
-            log_http_403_errors(json.dumps(identifiers), self.get_normalized_nodes_url, data, logger=self.logger)
-            return {}
-
-        if response.status_code != 200:
-            # raise Exception(f"NodeNorm returned status code {response.status_code}")
-            logging.error(
-                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
+        normalization_results = {}
+        if identifiers_to_query:
+            data = {
+                "curies": identifiers_to_query,
+                "conflate": props.get("geneprotein_conflation", True),
+                "drug_chemical_conflate": props.get("drugchemical_conflation", False),
+                "description": props.get("description", False),
+            }
+            response = session.post(
+                self.get_normalized_nodes_url,
+                json=data,
+                timeout=timeout,
             )
-            return {}
 
-        final_result = {}
+            if response.status_code == 403:
+                log_http_403_errors(
+                    json.dumps(identifiers),
+                    self.get_normalized_nodes_url,
+                    data,
+                    logger=self.logger,
+                )
+            elif not response.ok:
+                raise Exception(f"NodeNorm returned status code {response.status_code}")
+                # logging.error(
+                #     f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
+                # )
+                # return {}
+            else:
+                normalization_results = response.json()
+
         if not flag_skip_cache:
             # Update the cache with the new results.
-            final_result = response.json()
-            self.cache.update(final_result)
+            self.cache.update(normalization_results)
 
             # Put the cached identifiers back in.
             identifiers_to_reinsert = set(identifiers) & self.cache.keys()
             for identifier in identifiers_to_reinsert:
-                final_result[identifier] = self.cache[identifier]
+                normalization_results[identifier] = self.cache[identifier]
 
-        return final_result
+        return normalization_results
 
     def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
         """
