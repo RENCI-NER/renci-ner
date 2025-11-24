@@ -191,7 +191,7 @@ class BagelAnnotator(Annotator):
 
         output_annotations = []
         for index, ann in enumerate(text.annotations):
-            logging.debug(
+            self.logger.debug(
                 f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})"
             )
             possible_matches = set()
@@ -233,7 +233,7 @@ class BagelAnnotator(Annotator):
                         )
                     )
 
-                logging.debug(
+                self.logger.debug(
                     f"Found {len(possible_matches)} possible matches for '{ann.text}' with annotator {annotator_with_props}."
                 )
 
@@ -242,7 +242,7 @@ class BagelAnnotator(Annotator):
                 output_annotations.append(ann)
                 continue
 
-            logging.debug(
+            self.logger.debug(
                 f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}."
             )
 
@@ -349,7 +349,7 @@ class BagelAnnotator(Annotator):
             )
 
         result = response.json()
-        logging.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
+        self.logger.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
 
         # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
         # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
