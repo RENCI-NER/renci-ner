@@ -70,7 +70,7 @@ class NodeNorm(Transformer):
             "skip_cache": "(true/false, default: false) Skip the cache when normalizing.",
         }
 
-    def normalize(self, identifiers, props=None):
+    def normalize(self, identifiers: list[str], props=None):
         """
         Normalize a list of identifiers using NodeNorm.
 
@@ -99,13 +99,11 @@ class NodeNorm(Transformer):
 
         data = {
             "curies": identifiers_to_query,
-            "conflate": "true"
-            if props.get("geneprotein_conflation", True)
-            else "false",
-            "drug_chemical_conflate": "true"
-            if props.get("drugchemical_conflation", False)
-            else "false",
-            "description": "true" if props.get("description", False) else "false",
+            "conflate":  props.get("geneprotein_conflation", True)
+            ,
+            "drug_chemical_conflate": props.get("drugchemical_conflation", False),
+
+            "description": props.get("description", False),
         }
         response = session.post(
             self.get_normalized_nodes_url,
@@ -149,9 +147,6 @@ class NodeNorm(Transformer):
         """
         if props is None:
             props = {}
-
-        session = self.requests_session
-        timeout = props.get("timeout", 120)
 
         ids = list(set(map(lambda a: a.id, annotated_text.annotations)))
         results = self.normalize(ids, props=props)

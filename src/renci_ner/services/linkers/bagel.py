@@ -12,14 +12,13 @@
 # Source code: https://github.com/RENCI-NER/bagel
 # Hosted at: https://bagel.apps.renci.org/
 #
+import functools
 import json
 import logging
 import os
-import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import requests
-import webcolors
 from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
@@ -39,6 +38,8 @@ RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
 BAGEL_PROMPT_NAME = "bagel/ask_classes"
 DEFAULT_LIMIT = 10
 BAGEL_DEFAULT_TIMEOUT = 120
+DEFAULT_TOP_P = 0.5
+DEFAULT_TEMPERATURE = 1.0
 
 # Load BAGEL_USERNAME and BAGEL_PASSWORD from the environment.
 BAGEL_USERNAME = os.environ.get("BAGEL_USERNAME")
@@ -82,6 +83,40 @@ class BagelResult:
             "taxa_ids": self.taxa_ids.split("||"),
             "synonym_type": self.synonym_type,
         }
+
+    @staticmethod
+    def get_bagel_sort_key(br) -> tuple:
+        if not isinstance(br, BagelResult):
+            raise TypeError(
+                f"get_synonym_type_order_key({br}) called, but we can only work with BagelResult objects, got {type(br)} instead."
+            )
+
+        if not br:
+            return 999, 999
+
+        # We need to sort in two ways:
+        # - Bagel results are marked as exact, broad, narrow or related. We want to sort exact matches first, followed by the others.
+        # - If we have multiple matches in a category, we want to figure out some way of choosing one.
+        #   - For now, let's just demote UMLS.
+        synonym_type_order = 0
+        identical_synonym_type_order = 0
+
+        if br.synonym_type == "exact":
+            synonym_type_order = 1
+        elif br.synonym_type in {"broad", "narrow"}:
+            synonym_type_order = 2
+        elif br.synonym_type == "related":
+            synonym_type_order = 3
+        else:
+            raise RuntimeError(f"Unknown synonym type found in {br}: {br.synonym_type}")
+
+        curie_prefix = br.identifier.split(":", 2)[0].upper()
+        if curie_prefix == "UMLS":
+            identical_synonym_type_order = 999
+        else:
+            identical_synonym_type_order = 0
+
+        return synonym_type_order, identical_synonym_type_order
 
 
 class BagelAnnotator(Annotator):
@@ -130,46 +165,48 @@ class BagelAnnotator(Annotator):
         return {
             "timeout": f"The timeout in seconds for requests to Bagel. Default: ${BAGEL_DEFAULT_TIMEOUT} seconds.",
             "bagel_prompt_name": "The name of the Bagel prompt to use. Default: '${BAGEL_PROMPT_NAME}'.",
+            "temperature": f"The temperature to use for the LLM (default: {DEFAULT_TEMPERATURE}).",
+            "top_p": f"The top_p to use for the LLM (default: {DEFAULT_TOP_P}).",
+            "limit": "The maximum number of results to return.",
         }
 
     def annotate_with(
         self,
         text: AnnotatedText,
         annotators: list[AnnotatorWithProps],
-        props: dict = None,
+        bagel_props: dict = None,
     ) -> AnnotatedText:
         """
         Given an AnnotatedText, re-annotate it using the given list of AnnotatorWithProps objects.
 
-        :param props: Properties to use with Bagel.
+        :param bagel_props: Properties to use with Bagel.
         :param text: An AnnotatedText containing annotations that need to be linked.
         :param annotators: A list of AnnotatorWithProps objects to use for re-annotation.
         :return: An AnnotatedText object containing the re-annotated annotations.
         """
-        session = self.requests_session
-        if props is None:
-            props = {}
-        timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+        if bagel_props is None:
+            bagel_props = {}
+        timeout = bagel_props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+        limit = bagel_props.get("limit", DEFAULT_LIMIT)
 
         output_annotations = []
         for index, ann in enumerate(text.annotations):
             logging.debug(f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})")
             possible_matches = set()
-            colors_available = list(set(webcolors.names(spec=webcolors.CSS3)))
 
             # Run it through every annotator, and collect all the resulting matches.
             for annotator_with_props in annotators:
                 annotator = annotator_with_props.annotator
-                props = annotator_with_props.props
+                annotator_props = annotator_with_props.props
 
-                result = annotator.annotate(ann.text, props)
+                result = annotator.annotate(ann.text, annotator_props)
                 for result_ann in result.annotations:
                     identifier = result_ann.id
                     entity_type = result_ann.type
                     description = ""
 
                     normalized = self.nodenorm.normalize(
-                        [identifier], {"description": True}
+                        [identifier], {"description": True, "timeout": timeout}
                     )
                     if identifier in normalized:
                         norm_result = normalized[identifier]
@@ -177,24 +214,22 @@ class BagelAnnotator(Annotator):
                             if "type" in norm_result:
                                 entity_type = norm_result["type"][0]
                             if "id" in norm_result:
-                                if "description" in norm_result["id"]:
-                                    description = norm_result["id"]["description"]
+                                if "description" in norm_result:
+                                    description = norm_result["description"]
 
-                    # Choose a color.
-                    selected_color = random.sample(colors_available, 1)[0]
-                    colors_available.remove(selected_color)
-
-                    possible_matches.add(BagelResult(
-                        label=result_ann.label,
-                        identifier=result_ann.id,
-                        description=description,
-                        entity_type=entity_type,
-                        # TODO: implement taxa
-                        #   - Should include this for genes and proteins for NameRes
-                        #   - Might be worth putting in a default, but probably not needed.
-                        taxa="",
-                        taxa_ids=""
-                    ))
+                    possible_matches.add(
+                        BagelResult(
+                            label=result_ann.label,
+                            identifier=result_ann.id,
+                            description=description,
+                            entity_type=entity_type,
+                            # TODO: implement taxa
+                            #   - Should include this for genes and proteins for NameRes
+                            #   - Might be worth putting in a default, but probably not needed.
+                            taxa="",
+                            taxa_ids="",
+                        )
+                    )
 
                 logging.debug(f"Found {len(possible_matches)} possible matches for '{ann.text}' with annotator {annotator_with_props}.")
 
@@ -205,56 +240,19 @@ class BagelAnnotator(Annotator):
 
             logging.debug(f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}.")
 
-            # Query Bagel.
-            # TODO: make this cacheable.
-            request_json = {
-                "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
-                "context": {
-                    "text": text.text,  # TODO: We currently give the full text as context, but in the future
-                                        # we'll probably want to limit it to +/- 3 sentences or so.
-                    "entity": ann.text,
-                    "synonyms": list(map(lambda x: x.to_dict(), possible_matches)),
-                },
-                "config": {
-                    "llm_model_name": "google/gemma-3-12b-it",
-                    "organization": "",
-                    "access_key": "",
-                    "url": "http://vllm-server/v1",
-                    "llm_model_args": {"top_p": 0.1, "temperature": 0},
-                },
-            }
-            logging.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
-            response = session.post(
-                self.rerank_url,
-                json=request_json,
-                # TODO: make this more configurable.
-                auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
-                timeout=timeout,
+            unique_bagel_results = self.query_bagel(
+                ann.text,
+                text.text,
+                tuple(possible_matches),
+                json.dumps(bagel_props, sort_keys=True),
             )
 
-            # 403 errors probably mean that the RENCI Ingress is catching something it shouldn't.
-            if response.status_code == 403:
-                log_http_403_errors(text.text, self.rerank_url, request_json, logger=self.logger)
-                continue
-
-            if not response.ok:
-                raise HTTPError(
-                    f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
-                )
-
-            result = response.json()
-            # The result here is a list of results. We'll apply all of them.
-            bagel_results = list(map(lambda x: BagelResult.from_dict(x), result))
-            unique_bagel_results = []
-            # Generate a list of unique Bagel results, preserving the original order.
-            unique_bagel_results_set = {}
-            for bagel_result in bagel_results:
-                if bagel_result not in unique_bagel_results_set:
-                    unique_bagel_results.append(bagel_result)
-                    unique_bagel_results_set[bagel_result] = True
-
             # Update annotation with Bagel results.
+            result_count = 0
             for bagel_result in unique_bagel_results:
+                if result_count >= limit:
+                    break
+
                 new_based_on = list(ann.based_on)
                 new_based_on.append(ann)
                 # This is almost certainly a NormalizedAnnotation, but we don't know for sure.
@@ -273,8 +271,97 @@ class BagelAnnotator(Annotator):
                         provenance=self.provenance,
                     )
                 )
+                result_count += 1
 
         return AnnotatedText(text.text, output_annotations)
+
+    @functools.cache
+    def query_bagel(
+        self,
+        entity_text: str,
+        context_text: str,
+        possible_matches: tuple[BagelResult],
+        props_json: str,
+    ) -> list[BagelResult]:
+        """
+        Query Bagel.
+
+        :param entity_text: The entity text to query for.
+        :param context_text: The context text that the entity text is found in.
+        :param possible_matches: The possible matches to query for (we store these as a tuple of BagelResult objects).
+        :param props_json: Properties to use with Bagel. This is really a dictionary, but we turn it into a JSON string for memoization.
+        :return: A list of BagelResult objects.
+        """
+
+        session = self.requests_session
+        props = json.loads(props_json)
+        timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+
+        request_json = {
+            "prompt_name": props.get("bagel_prompt_name", BAGEL_PROMPT_NAME),
+            "context": {
+                # TODO: We currently give the full text as context, but in the future
+                # we'll probably want to limit it to +/- 3 sentences or so.
+                "text": context_text,
+                "entity": entity_text,
+                "synonyms": list(map(lambda x: x.to_dict(), possible_matches)),
+            },
+            "config": {
+                "llm_model_name": "google/gemma-3-12b-it",
+                "organization": "",
+                "access_key": "",
+                "url": "http://vllm-server/v1",
+                "llm_model_args": {
+                    "top_p": props.get("top_p", DEFAULT_TOP_P),
+                    "temperature": props.get("temperature", DEFAULT_TEMPERATURE),
+                },
+            },
+        }
+        print(f"Bagel request: {json.dumps(request_json, indent=2)}")
+        response = session.post(
+            self.rerank_url,
+            json=request_json,
+            # TODO: make this more configurable.
+            auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
+            timeout=timeout,
+        )
+
+            # 403 errors probably mean that the RENCI Ingress is catching something it shouldn't.
+            if response.status_code == 403:
+                log_http_403_errors(text.text, self.rerank_url, request_json, logger=self.logger)
+                continue
+
+            if not response.ok:
+                raise HTTPError(
+                    f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
+                )
+        if not response.ok:
+            raise HTTPError(
+                f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
+            )
+
+        result = response.json()
+        logging.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
+
+        # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
+        # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
+        # sort later.
+        bagel_results = sorted(
+            map(lambda x: BagelResult.from_dict(x), result),
+            key=BagelResult.get_bagel_sort_key,
+        )
+        print(
+            f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2, sort_keys=True)}"
+        )
+
+        unique_bagel_results = []
+        # Generate a list of unique Bagel results, preserving the original order.
+        unique_bagel_results_set = {}
+        for bagel_result in bagel_results:
+            if bagel_result not in unique_bagel_results_set:
+                unique_bagel_results.append(bagel_result)
+                unique_bagel_results_set[bagel_result] = True
+        return unique_bagel_results
 
     def annotate(self, text, props=None) -> AnnotatedText:
         """
