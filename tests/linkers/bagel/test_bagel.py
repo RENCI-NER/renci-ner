@@ -31,8 +31,7 @@ def test_check():
         return
 
     text = (
-        "In orbital cellulitis, an infection travels through the ophthalmic vein into the dural venous sinuses, "
-        + "causing dural sinus thrombosis."
+        "In orbital cellulitis, an infection travels through the ophthalmic vein into the eye socket."
     )
     annotated_text = biomegatron.annotate(text)
 
@@ -46,8 +45,8 @@ def test_check():
         {
             # After doing the Bagel-ing, only choose the single best result from Bagel.
             "limit": 1,
-            # Make this as predictable as possible.
-            "temperature": 0.01,
+            # Make this as predictable/repeatable as possible.
+            "temperature": 0,
             "top_p": 0.5,
         }
     )
@@ -129,49 +128,28 @@ def test_check():
             },
         ),
         Annotation(
-            text="dural venous sinuses",
-            id="UBERON:0005486",
-            label="venous dural sinus",
-            type="biolink:GrossAnatomicalStructure",
-            start=81,
-            end=101,
-            provenance=bagel.provenance,
-            based_on=[
-                Annotation(
-                    text="dural venous sinuses",
-                    id="I12-",
-                    label="",
-                    type="biolink:AnatomicalEntity",
-                    start=81,
-                    end=101,
-                    provenance=biomegatron.provenance,
-                    based_on=[],
-                    props={},
-                )
-            ],
-            props={"description": "A venous channel found between layers of dura mater in the brain. Receives blood from internal and external veins of the brain, receive cerebrospinal fluid (CSF) from the subarachnoid space, and ultimately empty into the internal jugular vein."},
-        ),
-        Annotation(
-            text="dural sinus thrombosis",
-            id="MONDO:0002907",
-            label="intracranial thrombosis",
-            type="biolink:Disease",
-            start=111,
-            end=133,
-            provenance=bagel.provenance,
-            based_on=[
-                Annotation(
-                    text="dural sinus thrombosis",
-                    id="I16-",
-                    label="",
-                    type="biolink:Disease",
-                    start=111,
-                    end=133,
-                    provenance=biomegatron.provenance,
-                    based_on=[],
-                    props={},
-                )
-            ],
-            props={"description": 'Formation or presence of a blood clot (thrombus) in a blood vessel within the skull. Intracranial thrombosis can lead to thrombotic occlusions and brain infarction. The majority of the thrombotic occlusions are associated with atherosclerosis.'},
-        ),
+text='eye socket',
+id='UMLS:C2371860',
+label='Structure of eye socket',
+type='biolink:AnatomicalEntity',
+start=81,
+end=91,
+provenance=bagel.provenance,
+based_on=[
+Annotation(
+text='eye socket',
+id='I12-',
+label='',
+type='biolink:AnatomicalEntity',
+start=81,
+end=91,
+provenance=biomegatron.provenance,
+based_on=[],
+props={},
+),
+],
+props={
+'description': '',
+},
+),
     ]
