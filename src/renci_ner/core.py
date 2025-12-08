@@ -21,7 +21,7 @@ class AnnotationProvenance:
     def to_dict(self):
         """Return a dictionary representation of this AnnotationProvenance."""
         return {
-            "@type": "lemur:AnnotationProvenance",
+            "@type": "renci_ner:AnnotationProvenance",
             "name": self.name,
             "url": self.url,
             "version": self.version,
@@ -61,7 +61,7 @@ class Annotation:
     def to_dict(self):
         """Return a dictionary representation of this Annotation."""
         return {
-            "@type": "lemur:Annotation",
+            "@type": "renci_ner:Annotation",
             "text": self.text,
             "id": self.id,
             "label": self.label,
@@ -162,7 +162,7 @@ class NormalizedAnnotation(Annotation):
     def to_dict(self):
         """Return a dictionary representation of this NormalizedAnnotation."""
         return {
-            "@type": "lemur:NormalizedAnnotation",
+            "@type": "renci_ner:NormalizedAnnotation",
             "text": self.text,
             "id": self.id,
             "biolink_type": self.biolink_type,
@@ -267,7 +267,7 @@ class AnnotatedText:
         """Convert this AnnotatedText to a dictionary."""
 
         return {
-            "@type": "lemur:AnnotatedText",
+            "@type": "renci_ner:AnnotatedText",
             "text": self.text,
             "annotations": [annotation.to_dict() for annotation in self.annotations],
         }
