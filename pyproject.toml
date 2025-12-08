@@ -20,7 +20,12 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1.8",
+    "en-core-sci-sm",
+    "en-core-web-md",
     "requests>=2.32.3",
+    "scispacy>=0.6.2",
+    "spacy-streamlit>=1.0.6",
+    "streamlit>=1.51.0",
 ]
 
 [build-system]
@@ -33,5 +38,10 @@ dev = [
     "ruff>=0.11.0",
 ]
 
+[tool.uv.sources]
+en-core-sci-sm = { url = "https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz" }
+en-core-web-md = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl" }
+
 [project.scripts]
 renci-ner = "renci_ner.cli:renci_ner"
+lemur = "lemur.app:main"
