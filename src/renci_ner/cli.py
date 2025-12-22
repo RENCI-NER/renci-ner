@@ -130,20 +130,20 @@ def renci_ner(
     continue_jsonl_filename = (
         click.format_filename(continue_jsonl) if continue_jsonl else None
     )
-    return renci_ner_without_click(input_filenames, column, method, output_filename, ner_limit, output_format, duplicate_data, allow_duplicate_ids, retries, verbose, continue_jsonl_filename)
+    return renci_ner_executor(input_filenames, column, method, output_filename, ner_limit, output_format, duplicate_data, allow_duplicate_ids, retries, verbose, continue_jsonl_filename)
 
-def renci_ner_without_click(input_filenames,
-                            column="",
-                            method="biomegatron-nameres",
-                            output_filename="STDOUT",
-                            ner_limit=10,
-                            output_format="csv",
-                            duplicate_data=False,
-                            allow_duplicate_ids=False,
-                            retries=10,
-                            verbose=True,
-                            continue_jsonl_filename=None,
-    ):
+def renci_ner_executor(input_filenames,
+                       column="",
+                       method="biomegatron-nameres",
+                       output_filename="STDOUT",
+                       ner_limit=10,
+                       output_format="csv",
+                       duplicate_data=False,
+                       allow_duplicate_ids=False,
+                       retries=10,
+                       verbose=True,
+                       continue_jsonl_filename=None,
+                       ):
     columns = column
 
     # TODO: if output_format is not set, we should guess it from the extension on output_filename.

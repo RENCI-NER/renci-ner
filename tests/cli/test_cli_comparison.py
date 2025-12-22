@@ -8,7 +8,7 @@ from itertools import product
 
 import pytest
 
-from renci_ner.cli import renci_ner_without_click
+from renci_ner.cli import renci_ner_executor
 
 # Get a list of all the files in `../data/pmid`.
 test_pmid_dir = Path(__file__).parent.parent / "data" / "pmid"
@@ -37,7 +37,7 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
     #     raise ValueError(f"Empty file: {pmid_filename}, cannot test.")
 
     tmpfile = NamedTemporaryFile()
-    renci_ner_without_click(
+    renci_ner_executor(
         input_filenames=[input_path.as_posix()],
         output_format=output_format,
         output_filename=tmpfile.name,
