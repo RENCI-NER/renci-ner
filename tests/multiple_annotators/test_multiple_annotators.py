@@ -6,8 +6,8 @@ from renci_ner.core import (
     Annotation,
     NormalizedAnnotation,
 )
-from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
+from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
 

@@ -3,8 +3,8 @@ from requests import HTTPError
 
 from renci_ner.core import (
     AnnotatedText,
-    NormalizedAnnotation,
     Annotation,
+    NormalizedAnnotation,
 )
 from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.ner.biomegatron import BioMegatron
