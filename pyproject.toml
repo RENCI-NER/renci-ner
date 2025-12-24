@@ -44,7 +44,7 @@ select = [
 
 # Optional but common
 ignore = [
-    "E501",  # let Ruff handle wrapping consistently
+#    "E501",  # let Ruff handle wrapping consistently
 ]
 
 fixable = ["ALL"]
