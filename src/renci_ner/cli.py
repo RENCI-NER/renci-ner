@@ -22,6 +22,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+
 @click.command
 @click.argument(
     "input_files",
@@ -30,10 +31,17 @@ logging.basicConfig(level=logging.INFO)
     required=True,
 )
 @click.option(
-    "--include-column", "-c", type=str, multiple=True, help="Column name(s) to include for processing"
+    "--include-column",
+    "-c",
+    type=str,
+    multiple=True,
+    help="Column name(s) to include for processing",
 )
 @click.option(
-    "--exclude-column", type=str, multiple=True, help="Column name(s) to exclude for processing"
+    "--exclude-column",
+    type=str,
+    multiple=True,
+    help="Column name(s) to exclude for processing",
 )
 @click.option(
     "--method",
@@ -177,13 +185,27 @@ def renci_ner_executor(
         texts = []
         last_suffix = suffixes[-1].lower() if len(suffixes) > 0 else ""
         if last_suffix.endswith(".csv"):
-            texts = (DelimitedFile(input_filename, columns_include=include_column, columns_exclude=exclude_column, gzipped=file_gzipped, dialect="excel").read_file())
+            texts = DelimitedFile(
+                input_filename,
+                columns_include=include_column,
+                columns_exclude=exclude_column,
+                gzipped=file_gzipped,
+                dialect="excel",
+            ).read_file()
         elif last_suffix.endswith(".tsv"):
-            texts = (DelimitedFile(input_filename, columns_include=include_column, columns_exclude=exclude_column, gzipped=file_gzipped, dialect="excel-tab").read_file())
+            texts = DelimitedFile(
+                input_filename,
+                columns_include=include_column,
+                columns_exclude=exclude_column,
+                gzipped=file_gzipped,
+                dialect="excel-tab",
+            ).read_file()
         elif last_suffix.endswith(".txt"):
-            texts = (TextFile(input_filename, gzipped=file_gzipped).read_file())
+            texts = TextFile(input_filename, gzipped=file_gzipped).read_file()
         else:
-            logger.error(f"Could not determine a file type for {input_filename} based on the suffixes {input_filepath.suffixes}.")
+            logger.error(
+                f"Could not determine a file type for {input_filename} based on the suffixes {input_filepath.suffixes}."
+            )
 
         # logger.info(f"Read {len(texts)} texts from {input_filename}.")
         all_texts.extend(texts)
@@ -196,34 +218,40 @@ def renci_ner_executor(
         case "biomegatron-sapbert":
             annotators = [
                 AnnotatorWithProps(BioMegatron(requests_session=session), {}),
-                AnnotatorWithProps(BabelSAPBERTAnnotator(requests_session=session), {"limit": ner_limit}),
+                AnnotatorWithProps(
+                    BabelSAPBERTAnnotator(requests_session=session),
+                    {"limit": ner_limit},
+                ),
             ]
+
             def annotator(annotated_text):
-                return annotated_text.annotate_with(annotators).transform(
-                            NodeNorm()
-                        )
+                return annotated_text.annotate_with(annotators).transform(NodeNorm())
         case "biomegatron-nameres":
             annotators = [
                 AnnotatorWithProps(BioMegatron(requests_session=session), {}),
-                AnnotatorWithProps(NameRes(requests_session=session), {"limit": ner_limit})
+                AnnotatorWithProps(
+                    NameRes(requests_session=session), {"limit": ner_limit}
+                ),
             ]
+
             def annotator(annotated_text):
                 return annotated_text.annotate_with(annotators)
         case "biomegatron-bagel":
             bagel = BagelAnnotator()
+
             def annotator(annotated_text):
                 return bagel.annotate_with(
-                                BioMegatron(requests_session=session).annotate(annotated_text.text),
-                                [
-                                    AnnotatorWithProps(
-                                        annotator=BabelSAPBERTAnnotator(requests_session=session),
-                                        props={"limit": ner_limit},
-                                    ),
-                                    AnnotatorWithProps(
-                                        annotator=NameRes(requests_session=session),
-                                    )
-                                ]
-                            )
+                    BioMegatron(requests_session=session).annotate(annotated_text.text),
+                    [
+                        AnnotatorWithProps(
+                            annotator=BabelSAPBERTAnnotator(requests_session=session),
+                            props={"limit": ner_limit},
+                        ),
+                        AnnotatorWithProps(
+                            annotator=NameRes(requests_session=session),
+                        ),
+                    ],
+                )
         case _:
             raise ValueError(f"Unsupported method: {method}")
 
@@ -253,6 +281,7 @@ def renci_ner_executor(
                     writer.writerow(annotated_text.to_csv())
             case _:
                 raise ValueError(f"Unsupported output format: {output_format}")
+
 
 if __name__ == "__main__":
     renci_ner()

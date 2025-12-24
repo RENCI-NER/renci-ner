@@ -61,7 +61,9 @@ class BioMegatron(Annotator):
             "skip_cache": "Do not use the cache (default: FALSE)",
         }
 
-    def annotate(self, text: str, props: dict = None, location: list[str] = None) -> AnnotatedText:
+    def annotate(
+        self, text: str, props: dict = None, location: list[str] = None
+    ) -> AnnotatedText:
         """
         Annotate text using BioMegatron.
 

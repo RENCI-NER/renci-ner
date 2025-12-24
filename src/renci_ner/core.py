@@ -275,9 +275,10 @@ class AnnotatedText:
         if len(annotators) == 0:
             return annotated_text
         for annotator_with_props in annotators:
-            annotated_text = annotated_text.reannotate(annotator_with_props.annotator, annotator_with_props.props)
+            annotated_text = annotated_text.reannotate(
+                annotator_with_props.annotator, annotator_with_props.props
+            )
         return annotated_text
-
 
     def __str__(self):
         """Return a string representation of this AnnotatedText."""
@@ -301,6 +302,7 @@ class AnnotatedText:
             "annotations": [annotation.to_dict() for annotation in self.annotations],
         }
 
+
 class Annotator:
     """
     An interface for a service that can annotate text.
@@ -319,7 +321,9 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props: dict = None, location: list[str] = None) -> AnnotatedText:
+    def annotate(
+        self, text: str, props: dict = None, location: list[str] = None
+    ) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`.
@@ -339,6 +343,7 @@ class Annotator:
         :return: A dictionary of supported properties, with the values describing each property.
         """
         return {}
+
 
 @dataclass
 class AnnotatorWithProps:
@@ -378,5 +383,3 @@ class Transformer:
         :return: The transformed AnnotatedText.
         """
         return annotated_text
-
-

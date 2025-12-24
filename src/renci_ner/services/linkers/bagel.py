@@ -201,7 +201,9 @@ class BagelAnnotator(Annotator):
                 annotator = annotator_with_props.annotator
                 annotator_props = annotator_with_props.props
 
-                result = annotator.annotate(ann.text, annotator_props, location=text.location)
+                result = annotator.annotate(
+                    ann.text, annotator_props, location=text.location
+                )
                 for result_ann in result.annotations:
                     identifier = result_ann.id
                     entity_type = result_ann.type
