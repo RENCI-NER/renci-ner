@@ -24,11 +24,11 @@ from requests.auth import HTTPBasicAuth
 
 from renci_ner.core import (
     AnnotatedText,
+    Annotation,
     AnnotationProvenance,
     Annotator,
-    NormalizedAnnotation,
     AnnotatorWithProps,
-    Annotation,
+    NormalizedAnnotation,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
 from renci_ner.utils import log_http_403_errors

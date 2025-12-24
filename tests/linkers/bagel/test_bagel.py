@@ -1,7 +1,7 @@
 import pytest
 from requests import HTTPError
 
-from renci_ner.core import AnnotatorWithProps, Annotation
+from renci_ner.core import Annotation, AnnotatorWithProps
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.linkers.nameres import NameRes

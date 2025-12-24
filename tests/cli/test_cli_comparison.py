@@ -2,9 +2,9 @@
 #
 # Test PMID articles by comparing them to known outputs.
 import logging
+from itertools import product
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from itertools import product
 
 import pytest
 

@@ -1,24 +1,22 @@
 import csv
 import json
+import logging
 import sys
-import time
 from pathlib import Path
 
+import click
 import requests
 from tqdm import tqdm
 from urllib3 import Retry
 
-from renci_ner.core import AnnotatorWithProps, AnnotatedText
+from renci_ner.core import AnnotatorWithProps
 from renci_ner.formats.csv import DelimitedFile
 from renci_ner.formats.txt import TextFile
-from renci_ner.services.linkers.bagel import BagelAnnotator
-from renci_ner.services.ner.biomegatron import BioMegatron
-from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
+from renci_ner.services.linkers.bagel import BagelAnnotator
+from renci_ner.services.linkers.nameres import NameRes
+from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
-
-import click
-import logging
 
 logging.basicConfig(level=logging.INFO)
 

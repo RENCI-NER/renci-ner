@@ -1,12 +1,8 @@
 # Test PMID articles by comparing them to known outputs.
-import logging
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from itertools import product
 
 import pytest
 
-from renci_ner.cli import renci_ner_executor
 from renci_ner.formats.txt import TextFile
 
 # Get a list of all the files in `../data/pmid`.

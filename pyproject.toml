@@ -36,3 +36,20 @@ dev = [
 
 [project.scripts]
 renci-ner = "renci_ner.cli:renci_ner"
+
+[tool.ruff.lint]
+# Enable all rules that ruff format would normally apply
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade
+]
+
+# Optional but common
+ignore = [
+    # "E501",  # let Ruff handle wrapping consistently
+]
+
+fixable = ["ALL"]
+unfixable = []
