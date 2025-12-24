@@ -257,6 +257,22 @@ class AnnotatedText:
 
         return AnnotatedText(self.text, new_annotations)
 
+    def annotate_with(
+        self,
+        annotators: list["AnnotatorWithProps"],
+    ):
+        """
+        Annotate an AnnotatedText with a list of AnnotatorWithProps objects.
+
+        :param annotators: A list of AnnotatorWithProps objects to use for annotation.
+        :return: An Annotated text.
+        """
+        annotated_text = self
+        for annotator_with_props in annotators:
+            annotated_text = annotated_text.reannotate(annotator_with_props.annotator, annotator_with_props.props)
+        return annotated_text
+
+
     def __str__(self):
         """Return a string representation of this AnnotatedText."""
         if len(self.annotations) < 20:
@@ -278,7 +294,6 @@ class AnnotatedText:
             "location": self.location,
             "annotations": [annotation.to_dict() for annotation in self.annotations],
         }
-
 
 class Annotator:
     """
@@ -318,6 +333,16 @@ class Annotator:
         """
         return {}
 
+@dataclass
+class AnnotatorWithProps:
+    """
+    Sometimes we need to share a set of annotators along with the properties used to execute them. This case class
+    can encapsulate that functionality.
+    """
+
+    annotator: Annotator
+    props: dict = field(default_factory=dict)
+
 
 class Transformer:
     """
@@ -348,12 +373,3 @@ class Transformer:
         return annotated_text
 
 
-@dataclass
-class AnnotatorWithProps:
-    """
-    Sometimes we need to share a set of annotators along with the properties used to execute them. This case class
-    can encapsulate that functionality.
-    """
-
-    annotator: Annotator
-    props: dict = field(default_factory=dict)

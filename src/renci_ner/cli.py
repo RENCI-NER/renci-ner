@@ -1,5 +1,6 @@
 import csv
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -132,7 +133,7 @@ def renci_ner_executor(
     include_column=None,
     exclude_column=None,
     method="biomegatron-nameres",
-    output_filename="STDOUT",
+    output_filename=None,
     ner_limit=10,
     output_format="csv",
     retries=10,
@@ -190,72 +191,65 @@ def renci_ner_executor(
     # logger.info(f"Read a total of {len(all_texts)} texts across all input files.")
 
     # Step 2. Annotate the input files.
+    match method:
+        case "biomegatron-sapbert":
+            annotators = [
+                AnnotatorWithProps(BioMegatron(requests_session=session), {}),
+                AnnotatorWithProps(BabelSAPBERTAnnotator(requests_session=session), {"limit": ner_limit}),
+            ]
+            def annotator(annotated_text):
+                return annotated_text.annotate_with(annotators).transform(
+                            NodeNorm()
+                        )
+        case "biomegatron-nameres":
+            annotators = [
+                AnnotatorWithProps(BioMegatron(requests_session=session), {}),
+                AnnotatorWithProps(NameRes(requests_session=session), {"limit": ner_limit})
+            ]
+            def annotator(annotated_text):
+                return annotated_text.annotate_with(annotators)
+        case "biomegatron-bagel":
+            bagel = BagelAnnotator()
+            def annotator(annotated_text):
+                return bagel.annotate_with(
+                                BioMegatron(requests_session=session).annotate(annotated_text.text),
+                                [
+                                    AnnotatorWithProps(
+                                        annotator=BabelSAPBERTAnnotator(requests_session=session),
+                                        props={"limit": ner_limit},
+                                    ),
+                                    AnnotatorWithProps(
+                                        annotator=NameRes(requests_session=session),
+                                    )
+                                ]
+                            )
+
     annotated_texts = []
-    start_time = time.time_ns()
-    total_texts = len(all_texts)
     for text in tqdm(all_texts):
         logging.debug(f"Annotating text: {text}")
 
-        # Logs progress and estimates remaining processing time
-        # if index > 0 and index % progress_every == 0:
-        #     elapsed_time = (time.time_ns() - start_time) / 1_000_000_000
-        #     remaining_time = elapsed_time * (total_texts - index) / index
-        #     logging.info(f"Processed {index} texts ({elapsed_time:.2f}s elapsed, {remaining_time} remaining)")
-
-        match method:
-            case "biomegatron-sapbert":
-                sapbert_annotations = (
-                    BioMegatron(requests_session=session)
-                    .annotate(text)
-                    .reannotate(
-                        BabelSAPBERTAnnotator(requests_session=session),
-                        {"limit": ner_limit},
-                    )
-                )
-                annotated_texts.append(NodeNorm(requests_session=session).transform(sapbert_annotations))
-            case "biomegatron-nameres":
-                annotated_texts.append(
-                    BioMegatron(requests_session=session)
-                    .annotate(text)
-                    .reannotate(NameRes(requests_session=session), {"limit": ner_limit})
-                )
-            case "biomegatron-bagel":
-                bagel = BagelAnnotator()
-                annotated_texts.append(
-                    bagel.annotate_with(
-                        BioMegatron(requests_session=session).annotate(text),
-                        [
-                            AnnotatorWithProps(
-                                annotator=BabelSAPBERTAnnotator(requests_session=session),
-                                props={"limit": ner_limit},
-                            ),
-                            AnnotatorWithProps(
-                                annotator=NameRes(requests_session=session),
-                            )
-                        ]
-                    )
-                )
-            case _:
-                raise ValueError(f"Unsupported method: {method}")
+        annotated_texts.append(annotator(text))
 
     # Step 3. Write out the output files.
-    match output_format:
-        case "jsonl":
-            with open(output_filename, "w") as output_file:
+    if output_filename is None or output_filename == "-":
+        outputf = sys.stdout
+    else:
+        outputf = open(output_filename, "w")
+    with outputf:
+        match output_format:
+            case "jsonl":
                 for annotated_text in annotated_texts:
-                    output_file.write(json.dumps(annotated_text.to_dict()) + "\n")
-        case "csv":
-            with open(output_filename, "w") as output_file:
-                writer = csv.writer(output_file)
-                for annotated_text in annotated_texts:
-                    writer.writerow(annotated_text.to_csv())
-        case "tsv":
-            with open(output_filename, "w") as output_file:
-                writer = csv.writer(output_file, delimiter="\t")
+                    outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
+            case "csv":
+                writer = csv.writer(outputf)
                 for annotated_text in annotated_texts:
                     writer.writerow(annotated_text.to_csv())
-        case _:
-            raise ValueError(f"Unsupported output format: {output_format}")
+            case "tsv":
+                writer = csv.writer(outputf, delimiter="\t")
+                for annotated_text in annotated_texts:
+                    writer.writerow(annotated_text.to_csv())
+            case _:
+                raise ValueError(f"Unsupported output format: {output_format}")
 
 if __name__ == "__main__":
     renci_ner()
