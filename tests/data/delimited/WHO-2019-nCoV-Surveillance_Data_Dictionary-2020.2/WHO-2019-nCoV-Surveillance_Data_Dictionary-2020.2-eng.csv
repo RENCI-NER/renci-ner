@@ -1,0 +1,92 @@
+﻿,,Revised case report form for confirmed Novel Coronavirus COVID-19 (‎‎‎report to WHO within 48 hours of case identification),,,,,,
+,,"Data dictionary, 27 February 2020",,,,,,
+Tx section,Variable  name,Short label EN,Short label FR,Description,Data type,Format,Permissible values EN (response options),Permissible values FR (response options)
+Reporting ,report_date,Date (DD/MM/YYYY)*: _____/____/______,Date*: _____/____/______,Date of reporting,Date,DD/MM/YYYY,,
+Reporting ,report_country,reporting country,Pays*:,"Country/territory/national boundary within which the case currently/usually resides.
+If transborders or international spread of outbreak ",String,Free text,,
+Reporting ,report_test_reason,reporting country,,Why the case was tested for COVID-19,Coded,Coded variables,"CASE_CONTACT, SEEKING_HC, POE_DETECTION, REPATRIATION, SURVEILLANCE, UNKNOWN, OTHER",
+Reporting ,report_test_reason_other,Other reason the case was tested for COVID-19,,Any other reason the case was tested for COVID-19,String,Free text,,
+Patient information,patinfo_ID,country case ID*:,Numéro d'identification unique*:,Unique case identification number (used in country),String,Free text,,
+Patient information,patinfo_ageonset,or Age:_______,ou Age *: ______,Age in units on the date of illness onset.,Numeric,###,0-110,0-110
+Patient information,patinfo_ageonsetunit,unit of age,Unité de l'âge,Years or months or days,Coded,Coded variables,"YEARS, MONTHS, DAYS",1 = année 2 = mois 3=jours
+Patient information,patinfo_sex,Sex at birth: Male Female,Sexe a la naissance*: Homme Femme,"Biological sex. That is the biological differential characteristics (chromosomes, hormonal profiles, internal and external sex organs) that best describes the case. ",Coded,Coded variables,"MALE, FEMALE",1 = Homme; 2 = Femme; 
+Patient information,patinfo_idadmin0,"where the case was diagnosed, admin level 0 (country) ",,Administrative level 0: Country where the case was diagnosed.,String,Free text,,
+Patient information,patinfo_idadmin1,identified Admin Level 1 (province):,Niveau admin 1*(préfecture): ,"Administrative level 1: First sub-national boundary (e.g. province, state, territory prefecture, region, etc.) where the case was diagnosed.",String,Free text,,
+Patient information,patinfo_resadmin0,place of residence admin level 0 ,,Administrative level 0: Country within which the case's currently/usually resides.,String,Free text,,
+Clinical status,Lab_date1,Date of first laboratory confirmation  ,Date prélèvement1,Date of first laboratory confirmation ,Date,DD/MM/YYYY,,
+Clinical status,patcourse_dateonset,Date of onset of first symptoms:____/____/______,Date de début des premiers symptomes*:,Date of first appearance of the signs or symptoms of the illness/disease. ,Date,DD/MM/YYYY,,
+Clinical status,patcourse_asymp,Is the patient presenting any signs or symptoms at time of specimen collection ,Signs or symptoms ,Is the patient presenting any signs or symptoms at time of specimen collection,Coded,Coded variables,"YES, NO, UNKNOWN",1 = Oui; 2 = Non
+Clinical status,Comcond_present,Does the patient have any underlying conditions?,,Does the patient have any underlying conditions?,Coded,Coded variables,"YES, NO, UNKNOWN",
+Clinical status,Comcond_preg,Pregnancy ,Grossesse,Is the patient pregnant? ,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_pregt,Trimester of pregancy,Trimestre de grossesse,,Coded,Coded variables,"FIRST, SECOND, THIRD",
+Clinical status,Comcond_partum,Post-partum (<6 weeks),Post-partum (<6 semaines),Is the patient in the post partum period defined as less than 6 weeks after delivery date,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_immuno,Immunodeficiency including HIV,"Immunodéficience, y compris le VIH","has the patient an adquired immunodeficiency (HIV) or is the patient treated with drugs that decreased immune response (corticoides, anti cancer chemotherapy)? ",Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_cardi,Cardiovacsular disease including hypertension,,any cardiovacsular disease,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_diabetes,Diabetes,,,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_liver,Liver disease,,any liver diseases,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_renal,Renal disease ,,any renal diseases ,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_neuro,Chronic neurological or neuromuscular disease,,,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_malig,Malignancy,Malignité,,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_lung,Chronic lung disease,Maladie aiguë ou chronique associée:,,Coded,Coded variables,"YES, NO",1 = Oui; 2 = Non
+Clinical status,Comcond_other,"Other, specify",Autre spécifier,Describe other underlying conditions and comorbidity,String,Free text,,
+Clinical status,patcourse_admit,admission to hospital?:,Hospitalisation* ?:,"Was the case hospitalized, admitted to a hospital or other health facility as an inpatient?",Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Clinical status,patcourse_presHCF,"For this episode, date first admitted in hospital","Pour cet épisode, quelle est la date de première présentation aux services de soins:",Date the case was first admitted  to any health facility. ,Date,DD/MM/YYYY,,
+Clinical status,patcourse_icu,Did the patient receive care in an ICU?,,Did the patient receive care in an intensive care unit (ICU)?,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Clinical status,patcourse_vent,Was the patient ventilated? ,Est ce que le patient a été ventilé mécaniquement? ,Was the patient ever ventilated for this episode at time of reporting?,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Clinical status,patcourse_ecmo,Did the patient receive ECMO? ,Est ce que le patient a été ventilé mécaniquement? ,Did the patient receive extracorporeal membrane oxygenation (ECMO)? ,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Clinical status,patcourse_iso,Was the case isolated?,,Was the case isolated with proper IPC controls implemented?,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Clinical status,patcourse_dateiso,date of isolation,date d'isolement,What date was the case isolated?,Date,DD/MM/YYYY,,
+Exposure and travel information,patinfo_occuhcw,Health care worker,,Is the patient working in a health care setting? ,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Exposure and travel information,patinfo_occuhcw_country,Healthcare worker country,,"If case is a healthcare worker, in which country do they work?",String,Free text,,
+Exposure and travel information,patinfo_occuhcw_city,Healthcare worker city,,"If case is a healthcare worker, in which city do they work?",String,Free text,,
+Exposure and travel information,patinfo_occuhcw_name,Healthcare worker facility name,,"If case is a healthcare worker, what is the name of the facility in which they work?",String,Free text,,
+Exposure and travel information,expo_travel,Has the patient travelled in the 14 days prior to symptom onset?,Le patient a-t-il voyagé au cours des 14 jours précédant l'apparition des symptômes?,Has the patient travelled in the 14 days prior to symptom onset?,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Exposure and travel information,expo_travel_country1,Specify country travelled to 1,Précisez le pays visité jusqu'à 1,List the country from location 1 that the case has travelled to in the 14 days prior to symptom onset,String,Free text,,
+Exposure and travel information,expo_travel_city1,Specify city travelled to 1,Précisez la ville parcourue au 1,List the city from location 1 that the case has travelled to in the 14 days prior to symptom onset,String,Free text,,
+Exposure and travel information,expo_travel_date1,Specify date departed from 1,Précisez la ville parcourue au 1,List the date departed from location 1 that the case has travelled to in the 14 days prior to symptom onset,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_travel_country2,Specify country travelled to 2,Précisez le pays visité jusqu'à 2,List the country from location 2 that the case has travelled to in the 14 days prior to symptom onset,String,Free text,,
+Exposure and travel information,expo_travel_city2,Specify city travelled to 2,Précisez la ville parcourue au 2,List the city from location 2 that the case has travelled to in the 14 days prior to symptom onset,String,Free text,,
+Exposure and travel information,expo_travel_date2,Specify date departed from 2,Précisez la ville parcourue au 1,List the date departed from location 2 that the case has travelled to in the 14 days prior to symptom onset,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_travel_country3,Specify country travelled to 3,Précisez le pays visité jusqu'à 3,List the country from location 3 that the case has travelled to in the 14 days prior to symptom onset,String,Free text,,
+Exposure and travel information,expo_travel_city3,Specify city travelled to 3,Précisez la ville parcourue au 3,List the city from location 3 that the case has travelled to in the 14 days prior to symptom onset,String,Free text,,
+Exposure and travel information,expo_travel_date3,Specify date departed from 3,Précisez la ville parcourue au 1,List the date departed from location 3 that the case has travelled to in the 14 days prior to symptom onset,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_visit_healthcare,Has the patient visited any health care facilities in the 14 days prior to symptom onset,Le patient a-t-il visité un établissement de santé au cours des 14 jours précédant l'apparition des symptômes,Has the patient visited any health care facilities in the 14 days prior to symptom onset,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Exposure and travel information,expo_contact_case,Has the patient had contact with a  confirmed case?,Le patient a-t-il eu un contact ave cun cas probable ou confirmé dans les 14 jours avant le début des singes?  ,Has the patient had contact with a confirmed case in the 14 days prior to disease onset?,Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Exposure and travel information,expo_case_setting_detail,Explain contact setting,,"If the patient has had contact with a confirmed case in the 14 days prior to symptom onset, explain contact setting",String,Free text,,
+Exposure and travel information,expo_ID1,ID number of confirmed case 1,Numero identification du cas contact probable ou confirmé ,List the unique case identifier 1 with whom the patient had contact with ,String,Free text,,
+Exposure and travel information,expo_ID2,ID number of confirmed case 2,Numero identification du cas contact probable ou confirmé ,List the unique case identifier 2 with whom the patient had contact with ,String,Free text,,
+Exposure and travel information,expo_ID3,ID number of confirmed  case 3,Numero identification du cas contact probable ou confirmé ,List the unique case identifier 3 with whom the patient had contact with ,String,Free text,,
+Exposure and travel information,expo_ID4,ID number of confirmed  case 4,Numero identification du cas contact probable ou confirmé ,List the unique case identifier 4 with whom the patient had contact with ,String,Free text,,
+Exposure and travel information,expo_ID5,ID number of confirmed  case 5,Numero identification du cas contact probable ou confirmé ,List the unique case identifier 5 with whom the patient had contact with ,String,Free text,,
+Exposure and travel information,expo_case_date_first1,Date of first exposure to confirmed case 1,Numero identification du cas contact probable ou confirmé ,Date of first exposure to confirmed case 1,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_first2,Date of first exposure to confirmed case 2,Numero identification du cas contact probable ou confirmé ,Date of first exposure to confirmed case 2,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_first3,Date of first exposure to confirmed case 3,Numero identification du cas contact probable ou confirmé ,Date of first exposure to confirmed case 3,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_first4,Date of first exposure to confirmed case 4,Numero identification du cas contact probable ou confirmé ,Date of first exposure to confirmed case 4,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_first5,Date of first exposure to confirmed case 5,Numero identification du cas contact probable ou confirmé ,Date of first exposure to confirmed case 5,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_last1,Date of last exposure to confirmed case 1,Numero identification du cas contact probable ou confirmé ,Date of last exposure to confirmed case 1,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_last2,Date of last exposure to confirmed case 2,Numero identification du cas contact probable ou confirmé ,Date of last exposure to confirmed case 2,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_last3,Date of last exposure to confirmed case 3,Numero identification du cas contact probable ou confirmé ,Date of last exposure to confirmed case 3,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_last4,Date of last exposure to confirmed case 4,Numero identification du cas contact probable ou confirmé ,Date of last exposure to confirmed case 4,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_date_last5,Date of last exposure to confirmed case 5,Numero identification du cas contact probable ou confirmé ,Date of last exposure to confirmed case 5,Date,DD/MM/YYYY,,
+Exposure and travel information,expo_case_location,Likely country for exposure to case?,Quel est l'endroit le plus probable d'exposition à la maladie?,Specify the location of possible exposure to a case,String,Free text,,
+Outcome,outcome_submitted,Outcome section submitted,,Has the outcome section been submitted?,Coded,Coded variables,"YES, NO, PARTIAL",
+Outcome,outcome_submitted_date,Date of outcome submission,,Date of outcome submission,Date,DD/MM/YYYY,,
+Outcome,outcome_asymp,Case developed symptoms,,"If case was asymptomatic at time of specimen collection resulting in first laboratory confirmation, did the case develop any symptoms or signs at any time prior to discharge or death",Coded,Coded variables,"YES, NO, UNKNOWN",
+Outcome,outcome_asymp_date,Date case developed symptoms,,"If case was asymptomatic and developed symptoms, what is the date of onset for symptoms/signs of illness",Date,DD/MM/YYYY,,
+Outcome,outcome_patcourse_admit,Patient admitted to hospital,,Patient was first admitted to hospital (outcome),Coded,Coded variables,"YES, NO, UNKNOWN",
+Outcome,outcome_patcourse_presHCF,Date patient admitted to hospital,,Date patient was first admitted to hospital (outcome),Date,DD/MM/YYYY,"YES, NO, UNKNOWN",
+Outcome,outcome_patcourse_icu,Did the patient receive care in an ICU?,,Did the patient receive care in an intensive care unit (ICU)? (outcome),Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Outcome,outcome_patcourse_vent,Was the patient ventilated? ,Est ce que le patient a été ventilé mécaniquement? ,Was the patient ever ventilated for this episode? (outcome),Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Outcome,outcome_patcourse_ecmo,Did the patient receive ECMO? ,Est ce que le patient a été ventilé mécaniquement? ,Did the patient receive extracorporeal membrane oxygenation (ECMO)? (outcome),Coded,Coded variables,"YES, NO, UNKNOWN","1 = Oui; 2 = Non, 3 = Inconnue"
+Outcome,outcome_patcourse_status,Patient status (outcome),,Patient status (outcome),Coded,Coded variables,"RECOVERED, NOTRECOVERED, DEATH, UNKNOWN, OTHER",
+Outcome,outcome_patcourse_status_other,Other patient status (outcome),,Other patient status (outcome),String,Free text,,
+Outcome,outcome_date_of_outcome,Date of patient release or date of death,,Date of Release from isolation/hospital or Date of Death,Date,DD/MM/YYYY,,
+Outcome,outcome_lab_date,"If released, date of last laboratory test",,"If released from hospital /isolation, date of last laboratory test",Date,DD/MM/YYYY,,
+Outcome,outcome_lab_result,laboratory result from last test,,laboratory result from last test,Coded,Coded variables,"POSITIVE, NEGATIVE,INCONCLUSIVE, UNKNOWN",
+Outcome,outcome_contacts_followed,High risk contacts followed from case,,Total number of high-risk contacts followed for this case,Numeric,###,,
+Outcome,outcome_contacts_followed_unknown,Number of high risk contacts followed unknown,,Number of high risk contacts followed unknown,Coded,Coded variables,"YES, NO, UNKNOWN",
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+© World Health Organization 2020. Some rights reserved. This work is available under the CC BY-NC-SA 3.0 IGO licence.,,,,,,,,
+WHO reference number:  WHO/2019-nCoV/Surveillance_Data_Dictionary/2020.2,,,,,,,,
