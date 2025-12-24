@@ -188,7 +188,7 @@ class AnnotatedText:
 
     @property
     def combined_location(self):
-        """ Return a combined location by combining the location string. """
+        """Return a combined location by combining the location string."""
         return "::".join(self.location)
 
     def transform(self, transformer: "Transformer", props: dict = None) -> Self:

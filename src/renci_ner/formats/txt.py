@@ -9,12 +9,18 @@ from renci_ner.core import AnnotatedText
 
 
 class TextFile:
-    def __init__(self, filename: str, encoding='utf-8', gzipped: bool = None, strip_lines: bool = True):
+    def __init__(
+        self,
+        filename: str,
+        encoding="utf-8",
+        gzipped: bool = None,
+        strip_lines: bool = True,
+    ):
         file_path = Path(filename)
         suffixes = file_path.suffixes
 
         # Check if it's gzipped.
-        if suffixes[-1].lower() == '.gz':
+        if suffixes[-1].lower() == ".gz":
             suffixes.pop()
             self.gzipped = True
         else:
@@ -40,7 +46,7 @@ class TextFile:
         count_rows = 0
 
         if self.gzipped:
-            textfile = gzip.open(self.file_path, 'rt', encoding=self.encoding)
+            textfile = gzip.open(self.file_path, "rt", encoding=self.encoding)
         else:
             textfile = open(self.file_path, encoding=self.encoding)
 
@@ -52,10 +58,15 @@ class TextFile:
                 if self.strip_lines:
                     text = row.strip()
 
-                yield AnnotatedText(text, location=[
-                    self.filename,
-                    self.__class__.__name__,
-                    f"row={count_rows}"
-                ])
+                yield AnnotatedText(
+                    text,
+                    location=[
+                        self.filename,
+                        self.__class__.__name__,
+                        f"row={count_rows}",
+                    ],
+                )
 
-        self.logger.info(f"Generated {count_rows} AnnotatedText objects from {count_rows} rows in {self}.")
+        self.logger.info(
+            f"Generated {count_rows} AnnotatedText objects from {count_rows} rows in {self}."
+        )

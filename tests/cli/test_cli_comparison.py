@@ -16,9 +16,11 @@ test_pmid_files = [f for f in test_pmid_dir.glob("pmid-*.txt") if f.is_file()]
 
 # Supported output formats.
 # TODO: add to renci_ner.cli so that we can get this programmatically.
-OUTPUT_FORMATS = ['csv', 'tsv', 'jsonl']
+OUTPUT_FORMATS = ["csv", "tsv", "jsonl"]
 
 all_tests = list(product(test_pmid_files, OUTPUT_FORMATS))
+
+
 @pytest.mark.parametrize("pmid_filename, output_format", all_tests)
 def test_pmid_comparison(pmid_filename: str, output_format: str):
     """
@@ -42,7 +44,7 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
         output_format=output_format,
         output_filename=tmpfile.name,
         # TODO: make this configurable
-        method='biomegatron-sapbert',
+        method="biomegatron-sapbert",
         ner_limit=10,
         duplicate_data=True,
         allow_duplicate_ids=False,
@@ -58,7 +60,11 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
         expected_output_text = output_filename.read_text().strip()
         assert expected_output_text == output_content
     else:
-        logger.info(f"Converted {pmid_filename} into output format {output_format} produced the following output:")
+        logger.info(
+            f"Converted {pmid_filename} into output format {output_format} produced the following output:"
+        )
         print(output_content)
         logger.info("---")
-        pytest.skip(f"No expected output file for output format {output_format}: {output_filename}")
+        pytest.skip(
+            f"No expected output file for output format {output_format}: {output_filename}"
+        )

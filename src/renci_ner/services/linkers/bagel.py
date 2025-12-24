@@ -349,7 +349,9 @@ class BagelAnnotator(Annotator):
             )
 
         result = response.json()
-        self.logger.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
+        self.logger.debug(
+            f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}"
+        )
 
         # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
         # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
