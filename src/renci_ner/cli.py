@@ -1,10 +1,15 @@
 import csv
 import json
+import time
+from pathlib import Path
 
 import requests
+from tqdm import tqdm
 from urllib3 import Retry
 
 from renci_ner.core import AnnotatorWithProps, AnnotatedText
+from renci_ner.formats.csv import DelimitedFile
+from renci_ner.formats.txt import TextFile
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.linkers.nameres import NameRes
@@ -16,27 +21,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-# HELPER FUNCTIONS
-
-
-def get_novel_column_name(new_column: str, old_columns: list):
-    """
-    Given a list of old columns, find a version of $new_column that
-    doesn't already exist, and return that.
-
-    :param new_column: The new column to add.
-    :param old_columns: The existing columns in this file.
-    :return: The new column name, which will not exist in the existing columns.
-    """
-    old_columns_set = set(old_columns)
-    new_column_name = new_column
-    index = 0
-    while new_column_name in old_columns_set:
-        index += 1
-        new_column_name = f"{new_column}_{index}"
-    return new_column_name
-
-
 @click.command
 @click.argument(
     "input_files",
@@ -45,7 +29,10 @@ def get_novel_column_name(new_column: str, old_columns: list):
     required=True,
 )
 @click.option(
-    "--column", "-c", type=str, multiple=True, help="Column name(s) to use for NER"
+    "--include-column", "-c", type=str, multiple=True, help="Column name(s) to include for processing"
+)
+@click.option(
+    "--exclude-column", type=str, multiple=True, help="Column name(s) to exclude for processing"
 )
 @click.option(
     "--method",
@@ -76,95 +63,87 @@ def get_novel_column_name(new_column: str, old_columns: list):
     help="Limit the number of results per annotation.",
 )
 @click.option(
-    "--duplicate-data", is_flag=True, default=False, help="Duplicate data in output."
-)
-@click.option(
-    "--allow-duplicate-ids",
-    is_flag=True,
-    default=False,
-    help="Allow duplicate IDs in output.",
-)
-@click.option(
     "--retries",
     type=int,
     default=10,
     help="Number of retries for failed requests",
 )
 @click.option(
-    "--continue-jsonl",
-    type=click.Path(exists=False, file_okay=True, dir_okay=False),
-    help="A JSONL output file to continue from",
+    "--gzipped",
+    type=bool,
+    default=False,
+    help="Whether the input files are gzipped",
 )
 @click.option(
     "--verbose", "-v", is_flag=True, default=False, help="Enable verbose logging"
 )
+@click.option(
+    "--progress-every",
+    type=int,
+    default=10,
+    help="Print progress every N texts",
+)
 def renci_ner(
     input_files,
-    column,
+    include_column,
+    exclude_column,
     method,
     output,
     ner_limit,
     output_format,
-    duplicate_data,
-    allow_duplicate_ids,
     retries,
     verbose,
-    continue_jsonl,
+    gzipped,
+    progress_every,
 ):
     """
     A CLI for the RENCI NER.
 
     :param input_files: The input files or directories to read. We guess the file type using the extension.
-    :param column: The column to use for the NER. If none is specified, every column will be used.
+    :param include_column: The column(s) to include for processing. If none is specified, every column will be used.
+    :param exclude_column: The column(s) to exclude from processing.
     :param method: The NER method to use. Limited for now, will be quite expansive later.
     :param output: The output file to write to. Defaults to STDOUT.
     :param output_format: The output format to write to.
     :param ner_limit: The maximum number of results per annotation.
-    :param duplicate_data: Whether to duplicate the data in the output.
-    :param allow_duplicate_ids: Whether to allow duplicate IDs in the output.
     :param retries: Number of retries for failed requests.
     :param verbose: Whether to enable verbose logging.
+    :param gzipped: Whether the input files are gzipped.
     """
     input_filenames = list(map(click.format_filename, input_files))
     output_filename = click.format_filename(output)
-    continue_jsonl_filename = (
-        click.format_filename(continue_jsonl) if continue_jsonl else None
-    )
     return renci_ner_executor(
         input_filenames,
-        column,
+        include_column,
+        exclude_column,
         method,
         output_filename,
         ner_limit,
         output_format,
-        duplicate_data,
-        allow_duplicate_ids,
         retries,
         verbose,
-        continue_jsonl_filename,
+        gzipped,
+        progress_every,
     )
 
 
 def renci_ner_executor(
     input_filenames,
-    column="",
+    include_column=None,
+    exclude_column=None,
     method="biomegatron-nameres",
     output_filename="STDOUT",
     ner_limit=10,
     output_format="csv",
-    duplicate_data=False,
-    allow_duplicate_ids=False,
     retries=10,
     verbose=True,
-    continue_jsonl_filename=None,
+    gzipped=False,
+    progress_every=10,
 ):
-    columns = column
-
-    # TODO: if output_format is not set, we should guess it from the extension on output_filename.
-
     # Set the logging level.
+    logger = logging.getLogger(__name__)
     if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
     # Set up a Requests session we can use.
     session = requests.Session()
@@ -177,204 +156,106 @@ def renci_ner_executor(
     session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
     session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
 
-    # Load up the continue data if specified.
-    text_already_processed = dict()
-    if continue_jsonl_filename:
-        with open(continue_jsonl_filename, "r") as continuef:
-            for line in continuef:
-                data = json.loads(line)
-                if "text" in data:
-                    text_already_processed[data["text"]] = data
-        logging.info(
-            f"Loaded {len(text_already_processed)} text already processed entries from continue JSONL file {continue_jsonl_filename}."
-        )
-
-    # Set up the pipeline.
-    if method == "biomegatron-sapbert":
-
-        def ner_method(text):
-            sapbert_annotations = (
-                BioMegatron(requests_session=session)
-                .annotate(text)
-                .reannotate(
-                    BabelSAPBERTAnnotator(requests_session=session),
-                    {"limit": ner_limit},
-                )
-            )
-            return NodeNorm(requests_session=session).transform(sapbert_annotations)
-    elif method == "biomegatron-nameres":
-
-        def ner_method(text):
-            return (
-                BioMegatron(requests_session=session)
-                .annotate(text)
-                .reannotate(NameRes(requests_session=session), {"limit": ner_limit})
-            )
-
-    elif method == "biomegatron-bagel":
-
-        def ner_method(text):
-            annotated_text = BioMegatron(requests_session=session).annotate(text)
-            return BagelAnnotator(requests_session=session).annotate_with(
-                annotated_text,
-                [
-                    AnnotatorWithProps(
-                        annotator=BabelSAPBERTAnnotator(requests_session=session),
-                        props={"limit": ner_limit},
-                    ),
-                    AnnotatorWithProps(
-                        annotator=NameRes(requests_session=session),
-                        props={"limit": ner_limit},
-                    ),
-                ],
-            )
-
-    else:
-        raise ValueError(f"Unsupported method: {method}")
-
-    # Read the input files.
+    all_texts = []
     for input_filename in input_filenames:
-        # TODO: add support for directories.
-        with open(input_filename, "r") as inputf:
-            if input_filename.lower().endswith(".csv"):
-                reader = csv.DictReader(inputf, dialect="excel")
-            elif input_filename.lower().endswith(".tsv"):
-                reader = csv.DictReader(inputf, dialect="excel_tab")
-            else:
-                raise ValueError(f"Unsupported file type: {input_filename}")
+        logging.debug(f"Reading input file: {input_filename}")
 
-            # If no `--column` arguments were given on the command line,
-            # fall back to use every column in the file.
-            if len(columns) == 0:
-                columns = reader.fieldnames
-                if len(columns) == 0:
-                    raise ValueError(f"No columns found in file: {input_filename}")
-                column_list = " - " + "\n - ".join(columns)
-                logging.warning(
-                    f"No columns specified, using all columns:\n{column_list}"
+        # Step 1. Read the input file.
+        input_filepath = Path(input_filename)
+        suffixes = input_filepath.suffixes
+
+        # Is this file compressed?
+        file_gzipped = False
+        if suffixes[-1].lower() == ".gz":
+            file_gzipped = True
+            suffixes.pop()
+        if not gzipped:
+            file_gzipped = gzipped
+
+        # What kind of file is this?
+        texts = []
+        last_suffix = suffixes[-1].lower() if len(suffixes) > 0 else ""
+        if last_suffix.endswith(".csv"):
+            texts = (DelimitedFile(input_filename, columns_include=include_column, columns_exclude=exclude_column, gzipped=file_gzipped, dialect="excel").read_file())
+        elif last_suffix.endswith(".tsv"):
+            texts = (DelimitedFile(input_filename, columns_include=include_column, columns_exclude=exclude_column, gzipped=file_gzipped, dialect="excel-tab").read_file())
+        elif last_suffix.endswith(".txt"):
+            texts = (TextFile(input_filename, gzipped=file_gzipped).read_file())
+        else:
+            logger.error(f"Could not determine a file type for {input_filename} based on the suffixes {input_filepath.suffixes}.")
+
+        # logger.info(f"Read {len(texts)} texts from {input_filename}.")
+        all_texts.extend(texts)
+
+    # logger.info(f"Read a total of {len(all_texts)} texts across all input files.")
+
+    # Step 2. Annotate the input files.
+    annotated_texts = []
+    start_time = time.time_ns()
+    total_texts = len(all_texts)
+    for text in tqdm(all_texts):
+        logging.debug(f"Annotating text: {text}")
+
+        # Logs progress and estimates remaining processing time
+        # if index > 0 and index % progress_every == 0:
+        #     elapsed_time = (time.time_ns() - start_time) / 1_000_000_000
+        #     remaining_time = elapsed_time * (total_texts - index) / index
+        #     logging.info(f"Processed {index} texts ({elapsed_time:.2f}s elapsed, {remaining_time} remaining)")
+
+        match method:
+            case "biomegatron-sapbert":
+                sapbert_annotations = (
+                    BioMegatron(requests_session=session)
+                    .annotate(text)
+                    .reannotate(
+                        BabelSAPBERTAnnotator(requests_session=session),
+                        {"limit": ner_limit},
+                    )
                 )
-
-            # Prepare to write the output.
-            with open(output_filename, "w") as outputf:
-                old_columns = list(reader.fieldnames)
-
-                if output_format in ["csv", "tsv"]:
-                    # TODO: need to add support for continue.
-
-                    # Make sure our new columns don't overlap with existing columns.
-                    ner_text_column = get_novel_column_name("ner_text", old_columns)
-                    ner_label_column = get_novel_column_name("ner_label", old_columns)
-                    ner_curie_column = get_novel_column_name("ner_curie", old_columns)
-                    ner_biolink_type_column = get_novel_column_name(
-                        "ner_biolink_type", old_columns
-                    )
-
-                    output_fields = old_columns + [
-                        ner_text_column,
-                        ner_label_column,
-                        ner_curie_column,
-                        ner_biolink_type_column,
-                    ]
-                    writer = (
-                        csv.DictWriter(
-                            outputf, dialect="excel", fieldnames=output_fields
-                        )
-                        if output_format == "csv"
-                        else csv.DictWriter(
-                            outputf, dialect="excel_tab", fieldnames=output_fields
-                        )
-                    )
-                    writer.writeheader()
-
-                    for row in reader:
-                        logging.info(f"Processing row: {row}")
-
-                        ner_text = "\n".join(
-                            [
-                                row[column]
-                                for column in columns
-                                if row[column].strip() != ""
-                            ]
-                        )
-
-                        if ner_text.strip() == "":
-                            writer.writerow(row)
-                            continue
-
-                        annotation_ids = set()
-
-                        annotated_text = ner_method(ner_text)
-
-                        if len(annotated_text.annotations) == 0:
-                            writer.writerow(row)
-                            continue
-
-                        first_row = True
-                        for annotation in annotated_text.annotations:
-                            if first_row:
-                                output_row = row.copy()
-                                first_row = False
-                            elif not duplicate_data:
-                                output_row = dict(map(lambda x: (x, ""), row.keys()))
-
-                            if (not allow_duplicate_ids) and (
-                                annotation.id in annotation_ids
-                            ):
-                                continue
-                            annotation_ids.add(annotation.id)
-
-                            output_row[ner_text_column] = annotation.text
-                            output_row[ner_label_column] = annotation.label
-                            output_row[ner_curie_column] = annotation.id
-                            output_row[ner_biolink_type_column] = annotation.type
-                            writer.writerow(output_row)
-
-                            logging.info(
-                                f" - Annotation: '{annotation.text}' annotated as {annotation.id} '{annotation.label}' (type {annotation.type})"
+                annotated_texts.append(NodeNorm(requests_session=session).transform(sapbert_annotations))
+            case "biomegatron-nameres":
+                annotated_texts.append(
+                    BioMegatron(requests_session=session)
+                    .annotate(text)
+                    .reannotate(NameRes(requests_session=session), {"limit": ner_limit})
+                )
+            case "biomegatron-bagel":
+                bagel = BagelAnnotator()
+                annotated_texts.append(
+                    bagel.annotate_with(
+                        BioMegatron(requests_session=session).annotate(text),
+                        [
+                            AnnotatorWithProps(
+                                annotator=BabelSAPBERTAnnotator(requests_session=session),
+                                props={"limit": ner_limit},
+                            ),
+                            AnnotatorWithProps(
+                                annotator=NameRes(requests_session=session),
                             )
-
-                        logging.info("")
-                elif output_format == "jsonl":
-                    count_outputs = 0
-
-                    # The easiest output format: we basically serialize the AnnotatedText object.
-                    for row in reader:
-                        logging.info(f"Processing row: {row}")
-
-                        ner_text = "\n".join(
-                            [
-                                row[column]
-                                for column in columns
-                                if row[column].strip() != ""
-                            ]
-                        )
-
-                        if ner_text in text_already_processed:
-                            logging.info(
-                                f" - Text already processed, returning previous entry: '{ner_text}'"
-                            )
-                            outputf.write(
-                                json.dumps(text_already_processed[ner_text]) + "\n"
-                            )
-                            count_outputs += 1
-                            continue
-
-                        if ner_text.strip() == "":
-                            annotated_text = AnnotatedText("", [])
-                        else:
-                            annotated_text = ner_method(ner_text)
-
-                        logging.info(f" - Annotated text: {annotated_text}")
-
-                        outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
-                        count_outputs += 1
-
-                    logging.info(
-                        f"Wrote {count_outputs} JSON lines to {output_filename}."
+                        ]
                     )
-                else:
-                    raise ValueError(f"Unsupported output format: {output_format}")
+                )
+            case _:
+                raise ValueError(f"Unsupported method: {method}")
 
+    # Step 3. Write out the output files.
+    match output_format:
+        case "jsonl":
+            with open(output_filename, "w") as output_file:
+                for annotated_text in annotated_texts:
+                    output_file.write(json.dumps(annotated_text.to_dict()) + "\n")
+        case "csv":
+            with open(output_filename, "w") as output_file:
+                writer = csv.writer(output_file)
+                for annotated_text in annotated_texts:
+                    writer.writerow(annotated_text.to_csv())
+        case "tsv":
+            with open(output_filename, "w") as output_file:
+                writer = csv.writer(output_file, delimiter="\t")
+                for annotated_text in annotated_texts:
+                    writer.writerow(annotated_text.to_csv())
+        case _:
+            raise ValueError(f"Unsupported output format: {output_format}")
 
 if __name__ == "__main__":
     renci_ner()
