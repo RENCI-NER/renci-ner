@@ -184,6 +184,12 @@ class AnnotatedText:
 
     text: str
     annotations: list[Annotation] = field(default_factory=list)
+    location: list[str] = field(default_factory=list)
+
+    @property
+    def combined_location(self):
+        """ Return a combined location by combining the location string. """
+        return "::".join(self.location)
 
     def transform(self, transformer: "Transformer", props: dict = None) -> Self:
         """
@@ -259,9 +265,9 @@ class AnnotatedText:
             annotations_str = f"{len(self.annotations)} annotations"
 
         if len(self.text) < 100:
-            return f"AnnotatedText(text='{self.text}', annotations={annotations_str})"
+            return f"AnnotatedText(text='{self.text}', location='{self.combined_location}', annotations={annotations_str})"
         else:
-            return f"AnnotatedText(text='{self.text[:100]}...', annotations={annotations_str})"
+            return f"AnnotatedText(text='{self.text[:100]}...', location='{self.combined_location}', annotations={annotations_str})"
 
     def to_dict(self):
         """Convert this AnnotatedText to a dictionary."""
@@ -269,6 +275,7 @@ class AnnotatedText:
         return {
             "@type": "renci_ner:AnnotatedText",
             "text": self.text,
+            "location": self.location,
             "annotations": [annotation.to_dict() for annotation in self.annotations],
         }
 
