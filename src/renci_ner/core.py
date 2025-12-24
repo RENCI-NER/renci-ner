@@ -255,7 +255,11 @@ class AnnotatedText:
 
                     new_annotations.append(reannotation)
 
-        return AnnotatedText(self.text, new_annotations)
+        if len(self.annotations) == 0:
+            # No annotations? Reannotate the entire text.
+            return annotator.annotate(self.text, props=props, location=self.location)
+
+        return AnnotatedText(self.text, new_annotations, location=self.location)
 
     def annotate_with(
         self,
@@ -268,6 +272,8 @@ class AnnotatedText:
         :return: An Annotated text.
         """
         annotated_text = self
+        if len(annotators) == 0:
+            return annotated_text
         for annotator_with_props in annotators:
             annotated_text = annotated_text.reannotate(annotator_with_props.annotator, annotator_with_props.props)
         return annotated_text
@@ -313,16 +319,17 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def annotate(self, text: str, props: dict = None, location: list[str] = None) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`.
 
         :param text: The text to annotate.
         :param props: Properties supported by this annotator to use during the annotation.
+        :param location: A list of strings describing the location of the text in the original document.
         :return AnnotatedText: The annotated text.
         """
-        return AnnotatedText(text, [])
+        return AnnotatedText(text, [], [])
 
     def supported_properties(self) -> dict[str, str]:
         """

@@ -71,12 +71,13 @@ class BabelSAPBERTAnnotator(Annotator):
             "skip_cache": "Do not use the cache (default: FALSE)",
         }
 
-    def annotate(self, text, props=None) -> AnnotatedText:
+    def annotate(self, text, props=None, location: list[str] = None) -> AnnotatedText:
         """
         Annotate text using BabelSAPBERT.
 
         :param text: The text to annotate.
         :param props: The properties to pass to SAPBERT.
+        :param location: The location of the text in the original document.
         :return: An AnnotatedText object containing the annotations.
         """
         if props is None:
@@ -138,7 +139,7 @@ class BabelSAPBERTAnnotator(Annotator):
                 )
             )
 
-        final_result = AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations, location=location)
         if not flag_skip_cache:
             self.cache[text] = final_result
 

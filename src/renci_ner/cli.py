@@ -191,6 +191,7 @@ def renci_ner_executor(
     # logger.info(f"Read a total of {len(all_texts)} texts across all input files.")
 
     # Step 2. Annotate the input files.
+    logging.info(f"Annotating texts with {method}.")
     match method:
         case "biomegatron-sapbert":
             annotators = [
@@ -223,6 +224,8 @@ def renci_ner_executor(
                                     )
                                 ]
                             )
+        case _:
+            raise ValueError(f"Unsupported method: {method}")
 
     annotated_texts = []
     for text in tqdm(all_texts):

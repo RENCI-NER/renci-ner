@@ -61,12 +61,13 @@ class BioMegatron(Annotator):
             "skip_cache": "Do not use the cache (default: FALSE)",
         }
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def annotate(self, text: str, props: dict = None, location: list[str] = None) -> AnnotatedText:
         """
         Annotate text using BioMegatron.
 
         :param text: Text to annotate.
         :param props: Properties to pass to BioMegatron.
+        :param location: The location of the text in the original document.
         :return: An AnnotatedText object containing the annotations.
         """
 
@@ -119,7 +120,7 @@ class BioMegatron(Annotator):
                 )
             )
 
-        final_result = AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations, location=location)
         if not flag_skip_cache:
             self.cache[text] = final_result
 

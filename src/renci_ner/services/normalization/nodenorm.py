@@ -203,4 +203,4 @@ class NodeNorm(Transformer):
 
             output_annotations.append(normalized_annotation)
 
-        return AnnotatedText(annotated_text.text, output_annotations)
+        return AnnotatedText(annotated_text.text, output_annotations, location=annotated_text.location)
