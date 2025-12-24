@@ -37,6 +37,9 @@ dev = [
 [project.scripts]
 renci-ner = "renci_ner.cli:renci_ner"
 
+[tool.ruff]
+line-length = 88
+
 [tool.ruff.lint]
 # Enable all rules that ruff format would normally apply
 select = [
@@ -48,7 +51,7 @@ select = [
 
 # Optional but common
 ignore = [
-    # "E501",  # let Ruff handle wrapping consistently
+    "E501",  # let Ruff handle wrapping consistently
 ]
 
 fixable = ["ALL"]
