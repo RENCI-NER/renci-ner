@@ -64,6 +64,7 @@ class TextFile:
                         self.filename,
                         self.__class__.__name__,
                         f"row={count_rows}",
+                        "text",
                     ],
                 )
 

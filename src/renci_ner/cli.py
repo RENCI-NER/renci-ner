@@ -145,7 +145,6 @@ def renci_ner_executor(
     retries=10,
     verbose=True,
     gzipped=False,
-    progress_every=10,
 ):
     # Set the logging level.
     logger = logging.getLogger(__name__)
@@ -173,7 +172,7 @@ def renci_ner_executor(
 
         # Is this file compressed?
         file_gzipped = False
-        if suffixes[-1].lower() == ".gz":
+        if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
             file_gzipped = True
             suffixes.pop()
         if not gzipped:
@@ -183,21 +182,23 @@ def renci_ner_executor(
         texts = []
         last_suffix = suffixes[-1].lower() if len(suffixes) > 0 else ""
         if last_suffix.endswith(".csv"):
-            texts = DelimitedFile(
+            delim_file = DelimitedFile(
                 input_filename,
                 columns_include=include_column,
                 columns_exclude=exclude_column,
                 gzipped=file_gzipped,
                 dialect="excel",
-            ).read_file()
+            )
+            texts = delim_file.read_file()
         elif last_suffix.endswith(".tsv"):
-            texts = DelimitedFile(
+            delim_file = DelimitedFile(
                 input_filename,
                 columns_include=include_column,
                 columns_exclude=exclude_column,
                 gzipped=file_gzipped,
                 dialect="excel-tab",
-            ).read_file()
+            )
+            texts = delim_file.read_file()
         elif last_suffix.endswith(".txt"):
             texts = TextFile(input_filename, gzipped=file_gzipped).read_file()
         else:
@@ -265,18 +266,15 @@ def renci_ner_executor(
     else:
         outputf = open(output_filename, "w")
     with outputf:
-        match output_format:
+        match output_format.lower():
             case "jsonl":
+                # TODO: this is much slower than TSV/CSV output -- we should figure out why.
                 for annotated_text in annotated_texts:
                     outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
             case "csv":
-                writer = csv.writer(outputf)
-                for annotated_text in annotated_texts:
-                    writer.writerow(annotated_text.to_csv())
+                DelimitedFile(output_filename).write_file(annotated_texts, outputf, duplicate_values=False)
             case "tsv":
-                writer = csv.writer(outputf, delimiter="\t")
-                for annotated_text in annotated_texts:
-                    writer.writerow(annotated_text.to_csv())
+                DelimitedFile(output_filename, dialect="excel-tab").write_file(annotated_texts, outputf, duplicate_values=False)
             case _:
                 raise ValueError(f"Unsupported output format: {output_format}")
 
