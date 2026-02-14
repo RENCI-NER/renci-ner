@@ -281,7 +281,7 @@ class BagelAnnotator(Annotator):
                 )
                 result_count += 1
 
-        return AnnotatedText(text.text, output_annotations)
+        return AnnotatedText(text.text, output_annotations, location=text.location)
 
     @functools.cache
     def query_bagel(
@@ -375,18 +375,22 @@ class BagelAnnotator(Annotator):
                 unique_bagel_results_set[bagel_result] = True
         return unique_bagel_results
 
-    def annotate(self, text, props=None) -> AnnotatedText:
+    def annotate(self, text, location=None, props=None) -> AnnotatedText:
         """
         Annotate text using BabelSAPBERT.
 
         TODO: needs to be completed rewritten.
 
         :param text: The text to annotate.
+        :param location: The location of the text in the original document, as a list.
         :param props: The properties to pass to SAPBERT.
         :return: An AnnotatedText object containing the annotations.
         """
         if props is None:
             props = {}
+
+        if location is None:
+            location = []
 
         session = self.requests_session
         timeout = props.get("timeout", 120)
@@ -406,7 +410,7 @@ class BagelAnnotator(Annotator):
         )
         if response.status_code == 403:
             log_http_403_errors(text, self.annotate_url, data, logger=self.logger)
-            return AnnotatedText(text, [])
+            return AnnotatedText(text, [], location=location)
 
         response.raise_for_status()
         results = response.json()
@@ -436,4 +440,4 @@ class BagelAnnotator(Annotator):
                 )
             )
 
-        return AnnotatedText(text, annotations)
+        return AnnotatedText(text, annotations, location=location)

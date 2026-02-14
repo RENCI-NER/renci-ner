@@ -85,6 +85,9 @@ class NameRes(Annotator):
         if props is None:
             props = {}
 
+        if location is None:
+            location = []
+
         flag_skip_cache = False
         if "skip_cache" in props and props["skip_cache"]:
             flag_skip_cache = True
@@ -113,7 +116,7 @@ class NameRes(Annotator):
 
         if response.status_code == 403:
             log_http_403_errors(text, self.lookup_url, data, logger=self.logger)
-            return AnnotatedText(text, [])
+            return AnnotatedText(text, [], location=location)
 
         response.raise_for_status()
         results = response.json()
