@@ -8,8 +8,10 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import pytest
+from requests import HTTPError
 
 from renci_ner.cli import renci_ner_executor
+from renci_ner.services.ner.biomegatron import BioMegatron
 
 # Config
 WRITE_EXPECTED_OUTPUT = "WRITE_EXPECTED_OUTPUT" in os.environ
@@ -43,6 +45,14 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
     #     raise ValueError(f"Empty file: {pmid_filename}, cannot test.")
 
     tmpfile = NamedTemporaryFile()
+
+    # SAPBERT is publicly accessible but BioMegatron is not, so we should check to
+    # see if we can access it before using it.
+    try:
+        _ = BioMegatron()
+    except HTTPError as err:
+        pytest.skip(f"BioMegatron is not available: {err}")
+        return
 
     # TODO: This is unnecessarily slowed by the fact that we have to reannotate the text multiple times.
     # We should rewrite this so that instead of renci_ner_executor() we call the internal method that returns
