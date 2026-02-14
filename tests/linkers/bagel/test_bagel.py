@@ -83,9 +83,8 @@ def test_check():
         },
     )
 
-    # Annotations 1-3 can vary between runs because the upstream linkers
-    # (BabelSAPBERT and NameRes) return different candidate sets, causing
-    # Bagel's LLM re-ranker to pick different winners.
+    # Annotations 1-3 can vary between runs because Bagel's LLM re-ranker can
+    # (randomly?) pick different winners.
 
     # Annotation 1: "acute bacterial infection"
     acute_bacterial_infection_based_on = [
