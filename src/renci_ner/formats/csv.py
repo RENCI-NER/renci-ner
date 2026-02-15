@@ -9,9 +9,10 @@ from io import TextIOBase
 from pathlib import Path
 
 from renci_ner.core import AnnotatedText
+from renci_ner.formats import Format
 
 
-class DelimitedFile:
+class DelimitedFile(Format):
     def __init__(
         self,
         filename: str,
@@ -41,7 +42,9 @@ class DelimitedFile:
                 elif last_suffix == ".tsv":
                     self.dialect = "excel-tab"
                 else:
-                    raise ValueError(f"Unsupported file type for DelimitedFile: {filename}")
+                    raise ValueError(
+                        f"Unsupported file type for DelimitedFile: {filename}"
+                    )
             else:
                 # If all else fails, use the default dialect.
                 self.dialect = "excel"
@@ -161,7 +164,9 @@ class DelimitedFile:
             # We pretend we have a single column called "text".
             return "text"
 
-    def write_file(self, texts: list[AnnotatedText], file: TextIOBase, duplicate_values=False):
+    def write_file(
+        self, texts: list[AnnotatedText], file: TextIOBase, duplicate_values=False
+    ):
         """Write annotated texts to a CSV file."""
 
         col_names = self.column_names
@@ -184,14 +189,16 @@ class DelimitedFile:
                 rownum += 1
             texts_by_row[rownum].append(text)
 
-        col_names.extend([
-            'annotation_column',
-            # 'annotation_location',
-            'annotation_text',
-            'annotation_id',
-            'annotation_type',
-            'annotation_prov'
-        ])
+        col_names.extend(
+            [
+                "annotation_column",
+                # 'annotation_location',
+                "annotation_text",
+                "annotation_id",
+                "annotation_type",
+                "annotation_prov",
+            ]
+        )
         writer = csv.DictWriter(file, fieldnames=col_names, dialect=self.dialect)
         writer.writeheader()
 
@@ -221,11 +228,15 @@ class DelimitedFile:
                     row_values_with_annotation["annotation_type"] = ann.type
 
                     provenances = ann.provenances
-                    row_values_with_annotation["annotation_prov"] = json.dumps([prov.to_dict() for prov in provenances])
+                    row_values_with_annotation["annotation_prov"] = json.dumps(
+                        [prov.to_dict() for prov in provenances]
+                    )
 
                     writer.writerow(row_values_with_annotation)
 
                     if not duplicate_values:
                         # If we're not writing duplicate values, reset the row values so subsequent annotations
                         # don't duplicate those values.
-                        row_values_with_annotation = {colname: "" for colname in written_colnames}
+                        row_values_with_annotation = {
+                            colname: "" for colname in written_colnames
+                        }

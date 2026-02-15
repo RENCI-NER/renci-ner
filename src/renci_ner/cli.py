@@ -1,17 +1,15 @@
-import csv
-import json
 import logging
 import sys
-from pathlib import Path
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 import click
 import requests
 from tqdm import tqdm
 from urllib3 import Retry
 
-from renci_ner.core import AnnotatorWithProps
-from renci_ner.formats.csv import DelimitedFile
-from renci_ner.formats.txt import TextFile
+from renci_ner.core import AnnotatedText, AnnotatorWithProps
+from renci_ner.formats import reader_for_file, writer_for_format
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.linkers.nameres import NameRes
@@ -19,6 +17,150 @@ from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
 logging.basicConfig(level=logging.INFO)
+
+
+def make_session(retries: int = 10) -> requests.Session:
+    """Create a requests Session with retry configuration."""
+    session = requests.Session()
+    retry = Retry(
+        total=retries,
+        backoff_factor=0.1,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods={"GET", "POST"},
+    )
+    session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
+    session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
+    return session
+
+
+def build_annotator(
+    method: str, session: requests.Session, ner_limit: int = 10
+) -> Callable[[AnnotatedText], AnnotatedText]:
+    """Build an annotation callable for the given method.
+
+    :param method: The NER method name.
+    :param session: The requests session to use.
+    :param ner_limit: Maximum number of results per annotation.
+    :return: A callable that annotates an AnnotatedText.
+    """
+    match method:
+        case "biomegatron-sapbert":
+            annotators = [
+                AnnotatorWithProps(BioMegatron(requests_session=session), {}),
+                AnnotatorWithProps(
+                    BabelSAPBERTAnnotator(requests_session=session),
+                    {"limit": ner_limit},
+                ),
+            ]
+
+            def annotator(annotated_text):
+                return annotated_text.annotate_with(annotators).transform(NodeNorm())
+
+        case "biomegatron-nameres":
+            annotators = [
+                AnnotatorWithProps(BioMegatron(requests_session=session), {}),
+                AnnotatorWithProps(
+                    NameRes(requests_session=session), {"limit": ner_limit}
+                ),
+            ]
+
+            def annotator(annotated_text):
+                return annotated_text.annotate_with(annotators)
+
+        case "biomegatron-bagel":
+            bagel = BagelAnnotator()
+            biomegatron = BioMegatron(requests_session=session)
+            sapbert = BabelSAPBERTAnnotator(requests_session=session)
+            nameres = NameRes(requests_session=session)
+
+            def annotator(annotated_text):
+                return bagel.annotate_with(
+                    biomegatron.annotate(annotated_text.text),
+                    [
+                        AnnotatorWithProps(
+                            annotator=sapbert,
+                            props={"limit": ner_limit},
+                        ),
+                        AnnotatorWithProps(
+                            annotator=nameres,
+                        ),
+                    ],
+                )
+
+        case _:
+            raise ValueError(f"Unsupported method: {method}")
+
+    return annotator
+
+
+@dataclass
+class AnnotationJob:
+    """A job that reads inputs, annotates them, and writes the results."""
+
+    annotate_fn: Callable[[AnnotatedText], AnnotatedText]
+    session: requests.Session = field(default_factory=requests.Session)
+    logger: logging.Logger = field(default_factory=lambda: logging.getLogger(__name__))
+
+    def read_inputs(
+        self,
+        input_filenames: list[str],
+        columns_include=None,
+        columns_exclude=None,
+        gzipped: bool = False,
+    ) -> list[AnnotatedText]:
+        """Read all input files, returning a flat list of AnnotatedText objects."""
+        all_texts = []
+        for input_filename in input_filenames:
+            self.logger.debug(f"Reading input file: {input_filename}")
+            reader = reader_for_file(
+                input_filename,
+                columns_include=columns_include,
+                columns_exclude=columns_exclude,
+                gzipped=gzipped,
+            )
+            all_texts.extend(reader.read_file())
+        return all_texts
+
+    def annotate_texts(self, texts: list[AnnotatedText]) -> list[AnnotatedText]:
+        """Run the annotation function on all texts with progress bar."""
+        logging.info(f"Annotating {len(texts)} texts.")
+        annotated_texts = []
+        for text in tqdm(texts):
+            self.logger.debug(f"Annotating text: {text}")
+            annotated_texts.append(self.annotate_fn(text))
+        return annotated_texts
+
+    def write_output(
+        self,
+        annotated_texts: list[AnnotatedText],
+        output_filename: str = None,
+        output_format: str = "csv",
+    ) -> None:
+        """Write annotated texts to the output file in the requested format."""
+        if output_filename is None or output_filename == "-":
+            outputf = sys.stdout
+        else:
+            outputf = open(output_filename, "w")
+        with outputf:
+            writer = writer_for_format(output_format, output_filename)
+            writer.write_file(annotated_texts, outputf, duplicate_values=False)
+
+    def run(
+        self,
+        input_filenames: list[str],
+        columns_include=None,
+        columns_exclude=None,
+        gzipped: bool = False,
+        output_filename: str = None,
+        output_format: str = "csv",
+    ) -> list[AnnotatedText]:
+        """Full job: read -> annotate -> write. Returns annotated texts."""
+        texts = self.read_inputs(
+            input_filenames, columns_include, columns_exclude, gzipped
+        )
+        annotated_texts = self.annotate_texts(texts)
+        self.write_output(annotated_texts, output_filename, output_format)
+        return annotated_texts
 
 
 @click.command
@@ -117,166 +259,21 @@ def renci_ner(
     :param verbose: Whether to enable verbose logging.
     :param gzipped: Whether the input files are gzipped.
     """
-    input_filenames = list(map(click.format_filename, input_files))
-    output_filename = click.format_filename(output)
-    return renci_ner_executor(
-        input_filenames,
-        include_column,
-        exclude_column,
-        method,
-        output_filename,
-        ner_limit,
-        output_format,
-        retries,
-        verbose,
-        gzipped,
-        progress_every,
-    )
-
-
-def renci_ner_executor(
-    input_filenames,
-    include_column=None,
-    exclude_column=None,
-    method="biomegatron-nameres",
-    output_filename=None,
-    ner_limit=10,
-    output_format="csv",
-    retries=10,
-    verbose=True,
-    gzipped=False,
-):
-    # Set the logging level.
-    logger = logging.getLogger(__name__)
     if verbose:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger(__name__).setLevel(logging.DEBUG)
 
-    # Set up a Requests session we can use.
-    session = requests.Session()
-    retry = Retry(
-        total=retries,
-        backoff_factor=0.1,
-        status_forcelist=[500, 502, 503, 504],
-        allowed_methods={"GET", "POST"},
+    session = make_session(retries)
+    annotate_fn = build_annotator(method, session, ner_limit)
+
+    job = AnnotationJob(annotate_fn=annotate_fn, session=session)
+    job.run(
+        input_filenames=list(map(click.format_filename, input_files)),
+        columns_include=include_column,
+        columns_exclude=exclude_column,
+        gzipped=gzipped,
+        output_filename=click.format_filename(output),
+        output_format=output_format,
     )
-    session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
-    session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
-
-    all_texts = []
-    for input_filename in input_filenames:
-        logging.debug(f"Reading input file: {input_filename}")
-
-        # Step 1. Read the input file.
-        input_filepath = Path(input_filename)
-        suffixes = input_filepath.suffixes
-
-        # Is this file compressed?
-        file_gzipped = False
-        if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
-            file_gzipped = True
-            suffixes.pop()
-        if not gzipped:
-            file_gzipped = gzipped
-
-        # What kind of file is this?
-        texts = []
-        last_suffix = suffixes[-1].lower() if len(suffixes) > 0 else ""
-        if last_suffix.endswith(".csv"):
-            delim_file = DelimitedFile(
-                input_filename,
-                columns_include=include_column,
-                columns_exclude=exclude_column,
-                gzipped=file_gzipped,
-                dialect="excel",
-            )
-            texts = delim_file.read_file()
-        elif last_suffix.endswith(".tsv"):
-            delim_file = DelimitedFile(
-                input_filename,
-                columns_include=include_column,
-                columns_exclude=exclude_column,
-                gzipped=file_gzipped,
-                dialect="excel-tab",
-            )
-            texts = delim_file.read_file()
-        elif last_suffix.endswith(".txt"):
-            texts = TextFile(input_filename, gzipped=file_gzipped).read_file()
-        else:
-            logger.error(
-                f"Could not determine a file type for {input_filename} based on the suffixes {input_filepath.suffixes}."
-            )
-
-        # logger.info(f"Read {len(texts)} texts from {input_filename}.")
-        all_texts.extend(texts)
-
-    # logger.info(f"Read a total of {len(all_texts)} texts across all input files.")
-
-    # Step 2. Annotate the input files.
-    logging.info(f"Annotating texts with {method}.")
-    match method:
-        case "biomegatron-sapbert":
-            annotators = [
-                AnnotatorWithProps(BioMegatron(requests_session=session), {}),
-                AnnotatorWithProps(
-                    BabelSAPBERTAnnotator(requests_session=session),
-                    {"limit": ner_limit},
-                ),
-            ]
-
-            def annotator(annotated_text):
-                return annotated_text.annotate_with(annotators).transform(NodeNorm())
-        case "biomegatron-nameres":
-            annotators = [
-                AnnotatorWithProps(BioMegatron(requests_session=session), {}),
-                AnnotatorWithProps(
-                    NameRes(requests_session=session), {"limit": ner_limit}
-                ),
-            ]
-
-            def annotator(annotated_text):
-                return annotated_text.annotate_with(annotators)
-        case "biomegatron-bagel":
-            bagel = BagelAnnotator()
-
-            def annotator(annotated_text):
-                return bagel.annotate_with(
-                    BioMegatron(requests_session=session).annotate(annotated_text.text),
-                    [
-                        AnnotatorWithProps(
-                            annotator=BabelSAPBERTAnnotator(requests_session=session),
-                            props={"limit": ner_limit},
-                        ),
-                        AnnotatorWithProps(
-                            annotator=NameRes(requests_session=session),
-                        ),
-                    ],
-                )
-        case _:
-            raise ValueError(f"Unsupported method: {method}")
-
-    annotated_texts = []
-    for text in tqdm(all_texts):
-        logging.debug(f"Annotating text: {text}")
-
-        annotated_texts.append(annotator(text))
-
-    # Step 3. Write out the output files.
-    if output_filename is None or output_filename == "-":
-        outputf = sys.stdout
-    else:
-        outputf = open(output_filename, "w")
-    with outputf:
-        match output_format.lower():
-            case "jsonl":
-                # TODO: this is much slower than TSV/CSV output -- we should figure out why.
-                for annotated_text in annotated_texts:
-                    outputf.write(json.dumps(annotated_text.to_dict()) + "\n")
-            case "csv":
-                DelimitedFile(output_filename).write_file(annotated_texts, outputf, duplicate_values=False)
-            case "tsv":
-                DelimitedFile(output_filename, dialect="excel-tab").write_file(annotated_texts, outputf, duplicate_values=False)
-            case _:
-                raise ValueError(f"Unsupported output format: {output_format}")
 
 
 if __name__ == "__main__":

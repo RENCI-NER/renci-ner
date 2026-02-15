@@ -3,12 +3,14 @@
 #
 import gzip
 import logging
+from io import TextIOBase
 from pathlib import Path
 
 from renci_ner.core import AnnotatedText
+from renci_ner.formats import Format
 
 
-class TextFile:
+class TextFile(Format):
     def __init__(
         self,
         filename: str,
@@ -71,3 +73,9 @@ class TextFile:
         self.logger.info(
             f"Generated {count_rows} AnnotatedText objects from {count_rows} rows in {self}."
         )
+
+    def write_file(
+        self, texts: list[AnnotatedText], file: TextIOBase, **kwargs
+    ) -> None:
+        for text in texts:
+            file.write(text.text + "\n")
