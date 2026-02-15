@@ -39,8 +39,6 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
 
     input_path = Path(test_pmid_dir) / pmid_filename
 
-    tmpfile = NamedTemporaryFile()
-
     # SAPBERT is publicly accessible but BioMegatron is not, so we should check to
     # see if we can access it before using it.
     try:
@@ -49,25 +47,32 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
         pytest.skip(f"BioMegatron is not available: {err}")
         return
 
-    session = make_session(retries=10)
-    annotate_fn = build_annotator("biomegatron-sapbert", session, ner_limit=10)
-
-    job = AnnotationJob(annotate_fn=annotate_fn, session=session)
-    job.run(
-        input_filenames=[input_path.as_posix()],
-        output_format=output_format,
-        output_filename=tmpfile.name,
-    )
-    output_content = ""
-    for lines in tmpfile:
-        output_content += lines.decode("utf-8")
+    # Use delete=False so we control cleanup; close immediately so write_output
+    # can open the path in text mode without conflict.
+    tmpfile = NamedTemporaryFile(delete=False, suffix=f".{output_format}")
+    tmpfile_path = Path(tmpfile.name)
     tmpfile.close()
 
+    try:
+        session = make_session(retries=10)
+        annotate_fn = build_annotator("biomegatron-sapbert", session, ner_limit=10)
+
+        job = AnnotationJob(annotate_fn=annotate_fn, session=session)
+        job.run(
+            input_filenames=[input_path.as_posix()],
+            output_format=output_format,
+            output_filename=str(tmpfile_path),
+        )
+        # Read with read_text() so newline handling matches the expected file.
+        output_content = tmpfile_path.read_text()
+    finally:
+        tmpfile_path.unlink(missing_ok=True)
+
     if (output_filename := pmid_filename.with_suffix(f".{output_format}")).exists():
-        expected_output_text = output_filename.read_text().strip()
+        expected_output_text = output_filename.read_text()
         # TODO: it would be better to do a line-by-line comparison.
         # TODO: for JSONL file, it would be better to load the JSON object and then do the comparison.
-        assert expected_output_text == output_content
+        assert expected_output_text.strip() == output_content.strip()
     else:
         if WRITE_EXPECTED_OUTPUT:
             with open(output_filename, "w") as f:
