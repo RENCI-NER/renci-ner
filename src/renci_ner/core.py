@@ -180,6 +180,15 @@ class NormalizedAnnotation(Annotation):
 class AnnotatedText:
     """
     A class for storing a text along with a set of annotations from a single source.
+
+    - text: The text to annotate.
+    - annotations: A list of annotations. Each annotation knows where it is relative to this
+      AnnotatedText object in terms of start/end.
+    - location: A list of strings describing the location of the text in the original document.
+      This is deliberately left undefined to allow for flexibility in how the location is represented.
+      Different formats are expected to be able to share location structure between readers and writers,
+      so that e.g. a CSV file can be read, annotated and then written back out in a structure similar
+      to what went in.
     """
 
     text: str
