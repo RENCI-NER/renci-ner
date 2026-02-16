@@ -98,7 +98,7 @@ class NameRes(Annotator):
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
-        data = {
+        params = {
             "string": text,
             "autocomplete": props.get("autocomplete", "false"),
             "limit": props.get("limit", 10),
@@ -110,12 +110,12 @@ class NameRes(Annotator):
         }
         response = session.get(
             self.lookup_url,
-            params=data,
+            params=params,
             timeout=timeout,
         )
 
         if response.status_code == 403:
-            log_http_403_errors(text, self.lookup_url, data, logger=self.logger)
+            log_http_403_errors(text, self.lookup_url, params, logger=self.logger)
             return AnnotatedText(text, [], location=location)
 
         response.raise_for_status()
