@@ -37,8 +37,6 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
     """
     logger = logging.getLogger(__name__)
 
-    input_path = Path(test_pmid_dir) / pmid_filename
-
     # SAPBERT is publicly accessible but BioMegatron is not, so we should check to
     # see if we can access it before using it.
     try:
@@ -57,9 +55,9 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
         session = make_session(retries=10)
         annotate_fn = build_annotator("biomegatron-sapbert", session, ner_limit=10)
 
-        job = AnnotationJob(annotate_fn=annotate_fn, session=session)
+        job = AnnotationJob(annotate_fn=annotate_fn)
         job.run(
-            input_filenames=[input_path.as_posix()],
+            input_filenames=[pmid_filename.as_posix()],
             output_format=output_format,
             output_filename=str(tmpfile_path),
         )
