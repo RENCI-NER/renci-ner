@@ -325,7 +325,7 @@ class BagelAnnotator(Annotator):
                 },
             },
         }
-        print(f"Bagel request: {json.dumps(request_json, indent=2)}")
+        self.logger.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
         response = session.post(
             self.rerank_url,
             json=request_json,
@@ -362,17 +362,17 @@ class BagelAnnotator(Annotator):
             map(lambda x: BagelResult.from_dict(x), result),
             key=BagelResult.get_bagel_sort_key,
         )
-        print(
+        self.logger.debug(
             f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2, sort_keys=True)}"
         )
 
         unique_bagel_results = []
         # Generate a list of unique Bagel results, preserving the original order.
-        unique_bagel_results_set = {}
+        seen = set()
         for bagel_result in bagel_results:
-            if bagel_result not in unique_bagel_results_set:
+            if bagel_result not in seen:
                 unique_bagel_results.append(bagel_result)
-                unique_bagel_results_set[bagel_result] = True
+                seen.add(bagel_result)
         return unique_bagel_results
 
     def annotate(self, text, location=None, props=None) -> AnnotatedText:

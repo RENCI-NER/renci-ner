@@ -22,7 +22,7 @@ class TextFile(Format):
         suffixes = file_path.suffixes
 
         # Check if it's gzipped.
-        if suffixes[-1].lower() == ".gz":
+        if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
             suffixes.pop()
             self.gzipped = True
         else:

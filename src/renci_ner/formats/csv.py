@@ -28,6 +28,8 @@ class DelimitedFile(Format):
         if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
             suffixes.pop()
             self.gzipped = True
+        else:
+            self.gzipped = False
         if gzipped is not None:
             self.gzipped = gzipped
 
@@ -101,25 +103,22 @@ class DelimitedFile(Format):
         self.column_names = []
         with open(self.file_path) as csvfile:
             reader = csv.DictReader(csvfile, dialect=self.dialect)
+            columns_to_include = None
             for row in reader:
                 self.row_count += 1
 
-                if self.columns_include:
-                    # Only include the columns we're interested in.
-                    columns_to_include = self.columns_include
-                else:
-                    # Include all columns.
-                    columns_to_include = list(reader.fieldnames)
-
-                    # Do we have any columns to exclude?
-                    if self.columns_exclude:
-                        for column in self.columns_exclude:
-                            columns_to_include.remove(column)
+                if columns_to_include is None:
+                    if self.columns_include:
+                        columns_to_include = list(self.columns_include)
+                    else:
+                        columns_to_include = [
+                            col
+                            for col in reader.fieldnames
+                            if col not in self.columns_exclude
+                        ]
 
                 if combine_columns:
-                    text = ""
                     for column in columns_to_include:
-                        text += row[column] + "\n"
                         if column not in self.column_names:
                             self.column_names.append(column)
                     text = "\n".join([row[column] for column in columns_to_include])

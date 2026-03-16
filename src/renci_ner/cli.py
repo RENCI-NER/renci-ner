@@ -98,7 +98,6 @@ class AnnotationJob:
     """A job that reads inputs, annotates them, and writes the results."""
 
     annotate_fn: Callable[[AnnotatedText], AnnotatedText]
-    session: requests.Session = field(default_factory=requests.Session)
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger(__name__))
 
     def read_inputs(
@@ -138,12 +137,12 @@ class AnnotationJob:
     ) -> None:
         """Write annotated texts to the output file in the requested format."""
         if output_filename is None or output_filename == "-":
-            outputf = sys.stdout
-        else:
-            outputf = open(output_filename, "w")
-        with outputf:
             writer = writer_for_format(output_format, output_filename)
-            writer.write_file(annotated_texts, outputf, duplicate_values=False)
+            writer.write_file(annotated_texts, sys.stdout, duplicate_values=False)
+        else:
+            with open(output_filename, "w") as outputf:
+                writer = writer_for_format(output_format, output_filename)
+                writer.write_file(annotated_texts, outputf, duplicate_values=False)
 
     def run(
         self,
@@ -226,12 +225,6 @@ class AnnotationJob:
 @click.option(
     "--verbose", "-v", is_flag=True, default=False, help="Enable verbose logging"
 )
-@click.option(
-    "--progress-every",
-    type=int,
-    default=10,
-    help="Print progress every N texts",
-)
 def renci_ner(
     input_files,
     include_column,
@@ -243,7 +236,6 @@ def renci_ner(
     retries,
     verbose,
     gzipped,
-    progress_every,
 ):
     """
     A CLI for the RENCI NER.
@@ -265,7 +257,7 @@ def renci_ner(
     session = make_session(retries)
     annotate_fn = build_annotator(method, session, ner_limit)
 
-    job = AnnotationJob(annotate_fn=annotate_fn, session=session)
+    job = AnnotationJob(annotate_fn=annotate_fn)
     job.run(
         input_filenames=list(map(click.format_filename, input_files)),
         columns_include=include_column,

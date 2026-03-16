@@ -122,10 +122,6 @@ class NodeNorm(Transformer):
                 )
             elif not response.ok:
                 raise Exception(f"NodeNorm returned status code {response.status_code}")
-                # logging.error(
-                #     f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
-                # )
-                # return {}
             else:
                 normalization_results = response.json()
 
@@ -194,7 +190,7 @@ class NodeNorm(Transformer):
                 label=result["id"].get("label", ""),
             )
             normalized_annotation.props["types"] = types
-            normalized_annotation.props["ic"] = results.get("ic", None)
+            normalized_annotation.props["ic"] = result.get("ic", None)
 
             if props.get("description", False):
                 normalized_annotation.props["description"] = result["id"].get(
