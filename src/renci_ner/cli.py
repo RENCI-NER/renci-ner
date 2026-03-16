@@ -16,8 +16,6 @@ from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
-logging.basicConfig(level=logging.INFO)
-
 
 def make_session(retries: int = 10) -> requests.Session:
     """Create a requests Session with retry configuration."""
@@ -251,6 +249,7 @@ def renci_ner(
     :param verbose: Whether to enable verbose logging.
     :param gzipped: Whether the input files are gzipped.
     """
+    logging.basicConfig(level=logging.INFO)
     if verbose:
         logging.getLogger(__name__).setLevel(logging.DEBUG)
 
