@@ -188,66 +188,72 @@ class BagelAnnotator(Annotator):
             bagel_props = {}
         timeout = bagel_props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
         limit = bagel_props.get("limit", DEFAULT_LIMIT)
+        nodenorm_props = {"description": True, "timeout": timeout}
 
-        output_annotations = []
+        # --- Pass 1: run all annotators, collect results, accumulate identifiers ---
+        per_ann_results = []   # list of (ann, [(result_ann, annotator_with_props), ...])
+        all_identifiers = set()
+
         for index, ann in enumerate(text.annotations):
             self.logger.debug(
                 f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})"
             )
-            possible_matches = set()
-
-            # Run it through every annotator, and collect all the resulting matches.
+            ann_matches = []
             for annotator_with_props in annotators:
                 annotator = annotator_with_props.annotator
                 annotator_props = annotator_with_props.props
-
                 result = annotator.annotate(
                     ann.text, annotator_props, location=text.location
                 )
                 for result_ann in result.annotations:
-                    identifier = result_ann.id
-                    entity_type = result_ann.type
-                    description = ""
+                    ann_matches.append((result_ann, annotator_with_props))
+                    all_identifiers.add(result_ann.id)
+            per_ann_results.append((ann, ann_matches))
 
-                    normalized = self.nodenorm.normalize(
-                        [identifier], {"description": True, "timeout": timeout}
-                    )
-                    if identifier in normalized:
-                        norm_result = normalized[identifier]
-                        if norm_result is not None:
-                            if "type" in norm_result:
-                                entity_type = norm_result["type"][0]
-                            if "id" in norm_result:
-                                if "description" in norm_result:
-                                    description = norm_result["description"]
+        # --- Single bulk NodeNorm call for all collected identifiers ---
+        normalized = self.nodenorm.normalize(list(all_identifiers), nodenorm_props)
 
-                    possible_matches.add(
-                        BagelResult(
-                            label=result_ann.label,
-                            identifier=result_ann.id,
-                            description=description,
-                            entity_type=entity_type,
-                            # TODO: implement taxa
-                            #   - Should include this for genes and proteins for NameRes
-                            #   - Might be worth putting in a default, but probably not needed.
-                            taxa="",
-                            taxa_ids="",
-                        )
-                    )
-
-                self.logger.debug(
-                    f"Found {len(possible_matches)} possible matches for '{ann.text}' with annotator {annotator_with_props}."
-                )
-
-            # If we don't have any possible matches, we can just leave this annotation as-is.
-            if len(possible_matches) == 0:
+        # --- Pass 2: build BagelResults and query Bagel ---
+        output_annotations = []
+        for ann, ann_matches in per_ann_results:
+            if not ann_matches:
                 output_annotations.append(ann)
                 continue
 
+            possible_matches = set()
+            for result_ann, annotator_with_props in ann_matches:
+                identifier = result_ann.id
+                entity_type = result_ann.type
+                description = ""
+
+                norm_result = normalized.get(identifier)
+                if norm_result is not None:
+                    if "type" in norm_result:
+                        entity_type = norm_result["type"][0]
+                    if "id" in norm_result and "description" in norm_result:
+                        description = norm_result["description"]
+
+                possible_matches.add(
+                    BagelResult(
+                        label=result_ann.label,
+                        identifier=identifier,
+                        description=description,
+                        entity_type=entity_type,
+                        # TODO: implement taxa
+                        #   - Should include this for genes and proteins for NameRes
+                        #   - Might be worth putting in a default, but probably not needed.
+                        taxa="",
+                        taxa_ids="",
+                    )
+                )
+
             self.logger.debug(
-                f"Querying Bagel for '{ann.text}' with annotator {annotator_with_props}."
+                f"Found {len(possible_matches)} possible matches for '{ann.text}'."
             )
 
+            self.logger.debug(
+                f"Querying Bagel for '{ann.text}'."
+            )
             unique_bagel_results = self.query_bagel(
                 ann.text,
                 text.text,
@@ -260,7 +266,6 @@ class BagelAnnotator(Annotator):
             for bagel_result in unique_bagel_results:
                 if result_count >= limit:
                     break
-
                 new_based_on = list(ann.based_on)
                 new_based_on.append(ann)
                 # This is almost certainly a NormalizedAnnotation, but we don't know for sure.
@@ -283,7 +288,7 @@ class BagelAnnotator(Annotator):
 
         return AnnotatedText(text.text, output_annotations, location=text.location)
 
-    @functools.cache
+    @functools.lru_cache(maxsize=10_000)
     def query_bagel(
         self,
         entity_text: str,
