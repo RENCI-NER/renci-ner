@@ -236,6 +236,10 @@ class AnnotatedText:
         if props is None:
             props = {}
 
+        if len(self.annotations) == 0:
+            # No annotations? Reannotate the entire text.
+            return annotator.annotate(self.text, props=props, location=self.location)
+
         new_annotations = []
         for annotation in self.annotations:
             annotated_text = annotator.annotate(annotation.text, props=props)
@@ -263,10 +267,6 @@ class AnnotatedText:
                     reannotation.based_on = new_based_on
 
                     new_annotations.append(reannotation)
-
-        if len(self.annotations) == 0:
-            # No annotations? Reannotate the entire text.
-            return annotator.annotate(self.text, props=props, location=self.location)
 
         return AnnotatedText(self.text, new_annotations, location=self.location)
 
