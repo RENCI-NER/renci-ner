@@ -30,6 +30,8 @@ class DelimitedFile(Format):
             self.gzipped = True
         else:
             self.gzipped = False
+        else:
+            self.gzipped = False
         if gzipped is not None:
             self.gzipped = gzipped
 
