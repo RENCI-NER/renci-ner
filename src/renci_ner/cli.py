@@ -216,7 +216,7 @@ class AnnotationJob:
 )
 @click.option(
     "--gzipped",
-    type=bool,
+    is_flag=True,
     default=False,
     help="Whether the input files are gzipped",
 )
