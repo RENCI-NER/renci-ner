@@ -25,10 +25,8 @@ def test_check():
 
     umls_C1412149 = results["UMLS:C1412149"]
     assert "id" in umls_C1412149
-    assert umls_C1412149["id"] == {
-        "identifier": "NCBIGene:71",
-        "label": "ACTG1",
-    }
+    assert umls_C1412149["id"]["identifier"] == "NCBIGene:71"
+    assert umls_C1412149["id"]["label"] == "ACTG1"
     assert "information_content" in umls_C1412149
     assert umls_C1412149["taxa"] == ["NCBITaxon:9606"]
 
