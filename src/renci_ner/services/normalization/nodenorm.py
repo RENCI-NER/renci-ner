@@ -14,7 +14,7 @@ from renci_ner.core import (
     NormalizedAnnotation,
     Transformer,
 )
-from renci_ner.utils import log_http_403_errors
+from renci_ner.utils import BoundedCache, log_http_403_errors
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
@@ -58,7 +58,7 @@ class NodeNorm(Transformer):
         self.logger = logging.getLogger(str(self))
 
         # Set up a cache.
-        self.cache = {}
+        self.cache = BoundedCache()
 
     def supported_properties(self):
         """Some configurable parameters."""

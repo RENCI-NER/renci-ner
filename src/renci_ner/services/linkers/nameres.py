@@ -13,7 +13,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
-from renci_ner.utils import log_http_403_errors
+from renci_ner.utils import BoundedCache, log_http_403_errors
 
 # Configuration.
 RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"
@@ -54,7 +54,7 @@ class NameRes(Annotator):
         self.logger = logging.getLogger(str(self))
 
         # Set up a cache.
-        self.cache = {}
+        self.cache = BoundedCache()
 
     def __str__(self):
         return f"NameRes(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version}"

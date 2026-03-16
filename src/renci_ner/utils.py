@@ -1,6 +1,33 @@
 # utils.py - some utility functions for use across this application
 import json
 import logging
+from collections import OrderedDict
+
+DEFAULT_CACHE_SIZE = 10_000
+
+
+class BoundedCache(OrderedDict):
+    """A dict-backed LRU cache with a configurable maximum size.
+
+    Evicts the least-recently-used entry once the cache exceeds maxsize.
+    """
+
+    def __init__(self, maxsize: int = DEFAULT_CACHE_SIZE):
+        super().__init__()
+        self.maxsize = maxsize
+
+    def __getitem__(self, key):
+        value = super().__getitem__(key)
+        self.move_to_end(key)
+        return value
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        if len(self) > self.maxsize:
+            oldest = next(iter(self))
+            del self[oldest]
 
 
 def log_http_403_errors(text: str, url: str = None, data=None, logger=None) -> None:

@@ -8,7 +8,7 @@ import logging
 import requests
 
 from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance, Annotator
-from renci_ner.utils import log_http_403_errors
+from renci_ner.utils import BoundedCache, log_http_403_errors
 
 # Configuration.
 RENCI_BIOMEGATRON_URL = "https://med-nemo.apps.renci.org"
@@ -52,7 +52,7 @@ class BioMegatron(Annotator):
         self.logger = logging.getLogger(str(self))
 
         # Set up a cache.
-        self.cache = {}
+        self.cache = BoundedCache()
 
     def supported_properties(self):
         """Some configurable parameters for BioMegatron (none at present)."""
