@@ -22,15 +22,11 @@ def log_http_403_errors(text: str, url: str = None, data=None, logger=None) -> N
     if not url:
         url = "unknown"
 
-    if '"' in text:
-        # Escape double quotes in the text.
-        text = text.replace('"', '\\"')
-
     if data:
         logger.warning(
-            f'Received HTTP 403 error when sending data to URL {url}: text="{text}", data={json.dumps(data, indent=2)}'
+            f"Received HTTP 403 error when sending data to URL {url}: text={json.dumps(text)}, data={json.dumps(data, indent=2)}"
         )
     else:
         logger.warning(
-            f'Received HTTP 403 error when sending text to URL {url}: "{text}"'
+            f"Received HTTP 403 error when sending text to URL {url}: {json.dumps(text)}"
         )

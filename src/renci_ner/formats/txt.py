@@ -19,9 +19,8 @@ class TextFile(Format):
         strip_lines: bool = True,
     ):
         file_path = Path(filename)
-        suffixes = file_path.suffixes
+        suffixes = list(file_path.suffixes)
 
-        # Check if it's gzipped.
         if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
             suffixes.pop()
             self.gzipped = True
@@ -31,13 +30,11 @@ class TextFile(Format):
         if gzipped is not None:
             self.gzipped = gzipped
 
-        # Set up the filenames.
         self.file_path = file_path
         self.filename = filename
         self.encoding = encoding
         self.strip_lines = strip_lines
 
-        # Set up logging.
         self.logger = logging.getLogger(__name__)
 
     def __str__(self):
@@ -71,7 +68,7 @@ class TextFile(Format):
                 )
 
         self.logger.info(
-            f"Generated {count_rows} AnnotatedText objects from {count_rows} rows in {self}."
+            f"Generated {count_rows} AnnotatedText objects from {count_rows} rows in {self.filename}."
         )
 
     def write_file(

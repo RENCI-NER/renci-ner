@@ -2,6 +2,7 @@
 # csv.py - Supports reading and writing AnnotatedText objects in CSV format.
 #
 import csv
+import gzip
 import json
 import logging
 from collections import defaultdict
@@ -22,9 +23,8 @@ class DelimitedFile(Format):
         gzipped: bool = None,
     ):
         file_path = Path(filename)
-        suffixes = file_path.suffixes
+        suffixes = list(file_path.suffixes)
 
-        # Check if it's gzipped.
         if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
             suffixes.pop()
             self.gzipped = True
@@ -33,7 +33,6 @@ class DelimitedFile(Format):
         if gzipped is not None:
             self.gzipped = gzipped
 
-        # If we don't have a dialect, try to guess it from the file suffix.
         if dialect is not None:
             self.dialect = dialect
         else:
@@ -48,10 +47,8 @@ class DelimitedFile(Format):
                         f"Unsupported file type for DelimitedFile: {filename}"
                     )
             else:
-                # If all else fails, use the default dialect.
                 self.dialect = "excel"
 
-        # Set up the column filters.
         self.columns_include = (
             set(columns_include) if columns_include is not None else set()
         )
@@ -59,15 +56,12 @@ class DelimitedFile(Format):
             set(columns_exclude) if columns_exclude is not None else set()
         )
 
-        # Set up the filenames.
         self.file_path = file_path
         self.filename = filename
 
-        # Set up the column and row information.
         self.column_names = None
         self.row_count = None
 
-        # Set up logging.
         self.logger = logging.getLogger(__name__)
 
     def read_file(self, include_empty=False, combine_columns=False, root_location=None):
@@ -101,26 +95,22 @@ class DelimitedFile(Format):
         count_texts = 0
         self.row_count = 0
         self.column_names = []
-        with open(self.file_path) as csvfile:
+        opener = gzip.open(self.file_path, "rt") if self.gzipped else open(self.file_path)
+        with opener as csvfile:
             reader = csv.DictReader(csvfile, dialect=self.dialect)
-            columns_to_include = None
+            if self.columns_include:
+                columns_to_include = list(self.columns_include)
+            else:
+                columns_to_include = [
+                    col
+                    for col in (reader.fieldnames or [])
+                    if col not in self.columns_exclude
+                ]
+            self.column_names = list(columns_to_include)
             for row in reader:
                 self.row_count += 1
 
-                if columns_to_include is None:
-                    if self.columns_include:
-                        columns_to_include = list(self.columns_include)
-                    else:
-                        columns_to_include = [
-                            col
-                            for col in reader.fieldnames
-                            if col not in self.columns_exclude
-                        ]
-
                 if combine_columns:
-                    for column in columns_to_include:
-                        if column not in self.column_names:
-                            self.column_names.append(column)
                     text = "\n".join([row[column] for column in columns_to_include])
                     if not include_empty and text.strip() == "":
                         continue
@@ -136,8 +126,6 @@ class DelimitedFile(Format):
                     count_texts += 1
                 else:
                     for column in columns_to_include:
-                        if column not in self.column_names:
-                            self.column_names.append(column)
                         text = row[column]
                         if not include_empty and text.strip() == "":
                             continue
@@ -205,7 +193,6 @@ class DelimitedFile(Format):
             texts_in_row = texts_by_row[rownum]
             row_values = {}
 
-            # Step 1. Go through texts_in_row and write out the values.
             written_colnames = set()
             for text in texts_in_row:
                 colname = self.get_col_name(text.location)
@@ -214,7 +201,6 @@ class DelimitedFile(Format):
                 written_colnames.add(colname)
                 row_values[colname] = text.text
 
-            # Step 2. Write out this row as many times as necessary along with all the annotations.
             for text in texts_in_row:
                 row_values_with_annotation = row_values.copy()
                 colname = self.get_col_name(text.location)

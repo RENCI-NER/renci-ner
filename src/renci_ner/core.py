@@ -15,11 +15,9 @@ class AnnotationProvenance:
     version: str
 
     def __str__(self):
-        """Return a string representation of this AnnotationProvenance."""
         return f"AnnotationProvenance(name='{self.name}', url='{self.url}', version='{self.version}')"
 
     def to_dict(self):
-        """Return a dictionary representation of this AnnotationProvenance."""
         return {
             "@type": "renci_ner:AnnotationProvenance",
             "name": self.name,
@@ -55,11 +53,9 @@ class Annotation:
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
 
     def __str__(self):
-        """Return a string representation of this Annotation."""
         return f"Annotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
 
     def to_dict(self):
-        """Return a dictionary representation of this Annotation."""
         return {
             "@type": "renci_ner:Annotation",
             "text": self.text,
@@ -156,24 +152,13 @@ class NormalizedAnnotation(Annotation):
         )
 
     def __str__(self):
-        """Return a string representation of this NormalizedAnnotation."""
         return f"NormalizedAnnotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
 
     def to_dict(self):
-        """Return a dictionary representation of this NormalizedAnnotation."""
-        return {
-            "@type": "renci_ner:NormalizedAnnotation",
-            "text": self.text,
-            "id": self.id,
-            "biolink_type": self.biolink_type,
-            "label": self.label,
-            "type": self.type,
-            "start": self.start,
-            "end": self.end,
-            "provenance": self.provenance.to_dict(),
-            "based_on": [ann.to_dict() for ann in self.based_on],
-            "props": self.props,
-        }
+        d = super().to_dict()
+        d["@type"] = "renci_ner:NormalizedAnnotation"
+        d["biolink_type"] = self.biolink_type
+        return d
 
 
 @dataclass
@@ -197,7 +182,6 @@ class AnnotatedText:
 
     @property
     def combined_location(self):
-        """Return a combined location by combining the location string."""
         return "::".join(self.location)
 
     def transform(self, transformer: "Transformer", props: dict = None) -> Self:
@@ -290,7 +274,6 @@ class AnnotatedText:
         return annotated_text
 
     def __str__(self):
-        """Return a string representation of this AnnotatedText."""
         if len(self.annotations) < 20:
             annotations_str = ", ".join(map(str, self.annotations))
         else:
@@ -302,8 +285,6 @@ class AnnotatedText:
             return f"AnnotatedText(text='{self.text[:100]}...', location='{self.combined_location}', annotations={annotations_str})"
 
     def to_dict(self):
-        """Convert this AnnotatedText to a dictionary."""
-
         return {
             "@type": "renci_ner:AnnotatedText",
             "text": self.text,

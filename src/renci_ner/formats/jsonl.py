@@ -16,7 +16,6 @@ class JsonlFile(Format):
         file_path = Path(filename)
         suffixes = list(file_path.suffixes)
 
-        # Check if it's gzipped.
         if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
             suffixes.pop()
             self.gzipped = True

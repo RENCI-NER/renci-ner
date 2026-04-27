@@ -120,10 +120,10 @@ class AnnotationJob:
 
     def annotate_texts(self, texts: list[AnnotatedText]) -> list[AnnotatedText]:
         """Run the annotation function on all texts with progress bar."""
-        logging.info(f"Annotating {len(texts)} texts.")
+        self.logger.info(f"Annotating {len(texts)} texts.")
         annotated_texts = []
         for text in tqdm(texts):
-            self.logger.debug(f"Annotating text: {text}")
+            self.logger.debug("Annotating text: %s", text)
             annotated_texts.append(self.annotate_fn(text))
         return annotated_texts
 
@@ -160,7 +160,7 @@ class AnnotationJob:
         return annotated_texts
 
 
-@click.command
+@click.command()
 @click.argument(
     "input_files",
     type=click.Path(exists=True, file_okay=True, dir_okay=True),
@@ -235,20 +235,7 @@ def renci_ner(
     verbose,
     gzipped,
 ):
-    """
-    A CLI for the RENCI NER.
-
-    :param input_files: The input files or directories to read. We guess the file type using the extension.
-    :param include_column: The column(s) to include for processing. If none is specified, every column will be used.
-    :param exclude_column: The column(s) to exclude from processing.
-    :param method: The NER method to use. Limited for now, will be quite expansive later.
-    :param output: The output file to write to. Defaults to STDOUT.
-    :param output_format: The output format to write to.
-    :param ner_limit: The maximum number of results per annotation.
-    :param retries: Number of retries for failed requests.
-    :param verbose: Whether to enable verbose logging.
-    :param gzipped: Whether the input files are gzipped.
-    """
+    """A CLI for the RENCI NER."""
     logging.basicConfig(level=logging.INFO)
     if verbose:
         logging.getLogger(__name__).setLevel(logging.DEBUG)
