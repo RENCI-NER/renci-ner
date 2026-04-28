@@ -14,6 +14,17 @@ class AnnotationProvenance:
     url: str
     version: str
 
+    def __str__(self):
+        return f"AnnotationProvenance(name='{self.name}', url='{self.url}', version='{self.version}')"
+
+    def to_dict(self):
+        return {
+            "@type": "renci_ner:AnnotationProvenance",
+            "name": self.name,
+            "url": self.url,
+            "version": self.version,
+        }
+
 
 @dataclass
 class Annotation:
@@ -40,6 +51,23 @@ class Annotation:
     def provenances(self) -> list[AnnotationProvenance]:
         """Return a list of provenances for this annotation and its based_on annotations."""
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
+
+    def __str__(self):
+        return f"Annotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
+
+    def to_dict(self):
+        return {
+            "@type": "renci_ner:Annotation",
+            "text": self.text,
+            "id": self.id,
+            "label": self.label,
+            "type": self.type,
+            "start": self.start,
+            "end": self.end,
+            "provenance": self.provenance.to_dict(),
+            "based_on": [ann.to_dict() for ann in self.based_on],
+            "props": self.props,
+        }
 
 
 @dataclass
@@ -123,6 +151,15 @@ class NormalizedAnnotation(Annotation):
             biolink_type=biolink_type,
         )
 
+    def __str__(self):
+        return f"NormalizedAnnotation(text='{self.text}', id='{self.id}', label='{self.label}', biolink_type='{self.biolink_type}', start={self.start}, end={self.end})"
+
+    def to_dict(self):
+        d = super().to_dict()
+        d["@type"] = "renci_ner:NormalizedAnnotation"
+        d["biolink_type"] = self.biolink_type
+        return d
+
 
 @dataclass
 class AnnotatedText:
@@ -168,6 +205,10 @@ class AnnotatedText:
 
         if props is None:
             props = {}
+
+        if len(self.annotations) == 0:
+            # No annotations? Reannotate the entire text.
+            return annotator.annotate(self.text, props=props)
 
         new_annotations = []
         for annotation in self.annotations:
