@@ -3,9 +3,11 @@
 # Source code: https://github.com/TranslatorSRI/NodeNormalization
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
+import json
 import logging
 
 import requests
+from cachetools import LRUCache
 
 from renci_ner.core import (
     AnnotatedText,
@@ -13,6 +15,7 @@ from renci_ner.core import (
     NormalizedAnnotation,
     Transformer,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
@@ -53,6 +56,10 @@ class NodeNorm(Transformer):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
+
+        # Set up a cache.
+        self.cache = LRUCache(maxsize=10_000)
 
     def supported_properties(self):
         """Some configurable parameters."""
@@ -61,6 +68,7 @@ class NodeNorm(Transformer):
             "geneprotein_conflation": "(true/false, default: true) Whether to conflate gene and protein identifiers.",
             "drugchemical_conflation": "(true/false, default: false) Whether to conflate drug and chemical identifiers.",
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
+            "skip_cache": "(true/false, default: false) Skip the cache when normalizing.",
         }
 
     def normalize(self, identifiers: list[str], props=None):
@@ -73,26 +81,61 @@ class NodeNorm(Transformer):
         """
         if props is None:
             props = {}
+
+        flag_skip_cache = False
+        if "skip_cache" in props and props["skip_cache"]:
+            flag_skip_cache = True
+
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
 
-        response = session.post(
-            self.get_normalized_nodes_url,
-            json={
-                "curies": identifiers,
+        if len(identifiers) == 0:
+            logging.debug(
+                f"No identifiers to normalize in NodeNorm.normalize({identifiers}, {props}), ignoring."
+            )
+            return {}
+
+        identifiers_to_query = identifiers
+        if not flag_skip_cache:
+            # Remove identifiers that are already in the cache.
+            identifiers_to_query = list(set(identifiers) - self.cache.keys())
+
+        normalization_results = {}
+        if identifiers_to_query:
+            data = {
+                "curies": identifiers_to_query,
                 "conflate": props.get("geneprotein_conflation", True),
                 "drug_chemical_conflate": props.get("drugchemical_conflation", False),
                 "description": props.get("description", False),
-            },
-            timeout=timeout,
-        )
-        if response.status_code != 200:
-            # raise Exception(f"NodeNorm returned status code {response.status_code}")
-            logging.error(
-                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
+            }
+            response = session.post(
+                self.get_normalized_nodes_url,
+                json=data,
+                timeout=timeout,
             )
-            return {}
-        return response.json()
+
+            if response.status_code == 403:
+                log_http_403_errors(
+                    json.dumps(identifiers),
+                    self.get_normalized_nodes_url,
+                    data,
+                    logger=self.logger,
+                )
+            elif not response.ok:
+                raise Exception(f"NodeNorm returned status code {response.status_code}")
+            else:
+                normalization_results = response.json()
+
+        if not flag_skip_cache:
+            # Update the cache with the new results.
+            self.cache.update(normalization_results)
+
+            # Put the cached identifiers back in.
+            identifiers_to_reinsert = set(identifiers) & self.cache.keys()
+            for identifier in identifiers_to_reinsert:
+                normalization_results[identifier] = self.cache[identifier]
+
+        return normalization_results
 
     def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
         """
@@ -148,7 +191,7 @@ class NodeNorm(Transformer):
                 label=result["id"].get("label", ""),
             )
             normalized_annotation.props["types"] = types
-            normalized_annotation.props["ic"] = results.get("ic", None)
+            normalized_annotation.props["ic"] = result.get("ic", None)
 
             if props.get("description", False):
                 normalized_annotation.props["description"] = result["id"].get(
