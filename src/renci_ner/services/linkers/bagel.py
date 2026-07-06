@@ -28,7 +28,6 @@ from renci_ner.core import (
     AnnotationProvenance,
     Annotator,
     AnnotatorWithProps,
-    NormalizedAnnotation,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
 from renci_ner.utils import log_http_403_errors
@@ -86,14 +85,6 @@ class BagelResult:
 
     @staticmethod
     def get_bagel_sort_key(br) -> tuple:
-        if not isinstance(br, BagelResult):
-            raise TypeError(
-                f"get_synonym_type_order_key({br}) called, but we can only work with BagelResult objects, got {type(br)} instead."
-            )
-
-        if not br:
-            return 999, 999
-
         # We need to sort in two ways:
         # - Bagel results are marked as exact, broad, narrow or related. We want to sort exact matches first, followed by the others.
         # - If we have multiple matches in a category, we want to figure out some way of choosing one.
@@ -379,70 +370,3 @@ class BagelAnnotator(Annotator):
                 unique_bagel_results.append(bagel_result)
                 seen.add(bagel_result)
         return unique_bagel_results
-
-    def annotate(self, text, location=None, props=None) -> AnnotatedText:
-        """
-        Annotate text using BabelSAPBERT.
-
-        TODO: needs to be completed rewritten.
-
-        :param text: The text to annotate.
-        :param location: The location of the text in the original document, as a list.
-        :param props: The properties to pass to SAPBERT.
-        :return: An AnnotatedText object containing the annotations.
-        """
-        if props is None:
-            props = {}
-
-        if location is None:
-            location = []
-
-        session = self.requests_session
-        timeout = props.get("timeout", 120)
-
-        min_score = props.get("score", 0)
-        limit = props.get("limit", DEFAULT_LIMIT)
-
-        data = {
-            "text": text,
-            "model_name": "sapbert",
-            "count": limit,
-        }
-        response = session.post(
-            self.annotate_url,
-            json=data,
-            timeout=timeout,
-        )
-        if response.status_code == 403:
-            log_http_403_errors(text, self.annotate_url, data, logger=self.logger)
-            return AnnotatedText(text, [], location=location)
-
-        response.raise_for_status()
-        results = response.json()
-
-        # Find all the results that meet our criteria.
-        annotations = []
-        for result in results:
-            if result.get("score", 0) < min_score:
-                continue
-
-            annotations.append(
-                # Since SAPBERT is normalized to Babel, we can treat it as a NormalizedAnnotation.
-                NormalizedAnnotation(
-                    text=text,
-                    id=result.get("curie", ""),
-                    label=result.get("name", ""),
-                    biolink_type=result.get("category", ""),
-                    type=result.get("category", ""),
-                    props={
-                        "score": result.get("score", 0),
-                    },
-                    provenance=self.provenance,
-                    # Since we're using the whole text, let's just use that
-                    # as the start/end.
-                    start=0,
-                    end=len(text),
-                )
-            )
-
-        return AnnotatedText(text, annotations, location=location)
