@@ -14,9 +14,6 @@ class AnnotationProvenance:
     url: str
     version: str
 
-    def __str__(self):
-        return f"AnnotationProvenance(name='{self.name}', url='{self.url}', version='{self.version}')"
-
     def to_dict(self):
         return {
             "@type": "renci_ner:AnnotationProvenance",
@@ -51,9 +48,6 @@ class Annotation:
     def provenances(self) -> list[AnnotationProvenance]:
         """Return a list of provenances for this annotation and its based_on annotations."""
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
-
-    def __str__(self):
-        return f"Annotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
 
     def to_dict(self):
         return {
@@ -150,9 +144,6 @@ class NormalizedAnnotation(Annotation):
             type=biolink_type,
             biolink_type=biolink_type,
         )
-
-    def __str__(self):
-        return f"NormalizedAnnotation(text='{self.text}', id='{self.id}', label='{self.label}', type='{self.type}', start={self.start}, end={self.end})"
 
     def to_dict(self):
         d = super().to_dict()
@@ -265,8 +256,6 @@ class AnnotatedText:
         :return: An Annotated text.
         """
         annotated_text = self
-        if len(annotators) == 0:
-            return annotated_text
         for annotator_with_props in annotators:
             annotated_text = annotated_text.reannotate(
                 annotator_with_props.annotator, annotator_with_props.props
