@@ -1,7 +1,6 @@
 import logging
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass, field
 
 import click
 import requests
@@ -91,73 +90,40 @@ def build_annotator(
     return annotator
 
 
-@dataclass
-class AnnotationJob:
-    """A job that reads inputs, annotates them, and writes the results."""
+def run_annotation_job(
+    annotate_fn: Callable[[AnnotatedText], AnnotatedText],
+    input_filenames: list[str],
+    columns_include=None,
+    columns_exclude=None,
+    gzipped: bool = False,
+    output_filename: str = None,
+    output_format: str = "csv",
+) -> list[AnnotatedText]:
+    """Read inputs, annotate each text (with a progress bar), and write the results."""
+    logger = logging.getLogger(__name__)
 
-    annotate_fn: Callable[[AnnotatedText], AnnotatedText]
-    logger: logging.Logger = field(default_factory=lambda: logging.getLogger(__name__))
-
-    def read_inputs(
-        self,
-        input_filenames: list[str],
-        columns_include=None,
-        columns_exclude=None,
-        gzipped: bool = False,
-    ) -> list[AnnotatedText]:
-        """Read all input files, returning a flat list of AnnotatedText objects."""
-        all_texts = []
-        for input_filename in input_filenames:
-            self.logger.debug(f"Reading input file: {input_filename}")
-            reader = reader_for_file(
-                input_filename,
-                columns_include=columns_include,
-                columns_exclude=columns_exclude,
-                gzipped=gzipped,
-            )
-            all_texts.extend(reader.read_file())
-        return all_texts
-
-    def annotate_texts(self, texts: list[AnnotatedText]) -> list[AnnotatedText]:
-        """Run the annotation function on all texts with progress bar."""
-        self.logger.info(f"Annotating {len(texts)} texts.")
-        annotated_texts = []
-        for text in tqdm(texts):
-            self.logger.debug("Annotating text: %s", text)
-            annotated_texts.append(self.annotate_fn(text))
-        return annotated_texts
-
-    def write_output(
-        self,
-        annotated_texts: list[AnnotatedText],
-        output_filename: str = None,
-        output_format: str = "csv",
-    ) -> None:
-        """Write annotated texts to the output file in the requested format."""
-        if output_filename is None or output_filename == "-":
-            writer = writer_for_format(output_format, output_filename)
-            writer.write_file(annotated_texts, sys.stdout, duplicate_values=False)
-        else:
-            with open(output_filename, "w") as outputf:
-                writer = writer_for_format(output_format, output_filename)
-                writer.write_file(annotated_texts, outputf, duplicate_values=False)
-
-    def run(
-        self,
-        input_filenames: list[str],
-        columns_include=None,
-        columns_exclude=None,
-        gzipped: bool = False,
-        output_filename: str = None,
-        output_format: str = "csv",
-    ) -> list[AnnotatedText]:
-        """Full job: read -> annotate -> write. Returns annotated texts."""
-        texts = self.read_inputs(
-            input_filenames, columns_include, columns_exclude, gzipped
+    texts = []
+    for input_filename in input_filenames:
+        logger.debug(f"Reading input file: {input_filename}")
+        reader = reader_for_file(
+            input_filename,
+            columns_include=columns_include,
+            columns_exclude=columns_exclude,
+            gzipped=gzipped,
         )
-        annotated_texts = self.annotate_texts(texts)
-        self.write_output(annotated_texts, output_filename, output_format)
-        return annotated_texts
+        texts.extend(reader.read_file())
+
+    logger.info(f"Annotating {len(texts)} texts.")
+    annotated_texts = [annotate_fn(text) for text in tqdm(texts)]
+
+    writer = writer_for_format(output_format, output_filename)
+    if output_filename is None or output_filename == "-":
+        writer.write_file(annotated_texts, sys.stdout)
+    else:
+        with open(output_filename, "w") as outputf:
+            writer.write_file(annotated_texts, outputf)
+
+    return annotated_texts
 
 
 @click.command()
@@ -243,8 +209,8 @@ def renci_ner(
     session = make_session(retries)
     annotate_fn = build_annotator(method, session, ner_limit)
 
-    job = AnnotationJob(annotate_fn=annotate_fn)
-    job.run(
+    run_annotation_job(
+        annotate_fn,
         input_filenames=list(map(click.format_filename, input_files)),
         columns_include=include_column,
         columns_exclude=exclude_column,

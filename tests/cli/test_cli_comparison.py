@@ -10,7 +10,7 @@ from tempfile import NamedTemporaryFile
 import pytest
 from requests import HTTPError
 
-from renci_ner.cli import AnnotationJob, build_annotator, make_session
+from renci_ner.cli import build_annotator, make_session, run_annotation_job
 from renci_ner.services.ner.biomegatron import BioMegatron
 
 # Config
@@ -55,8 +55,8 @@ def test_pmid_comparison(pmid_filename: str, output_format: str):
         session = make_session(retries=10)
         annotate_fn = build_annotator("biomegatron-sapbert", session, ner_limit=10)
 
-        job = AnnotationJob(annotate_fn=annotate_fn)
-        job.run(
+        run_annotation_job(
+            annotate_fn,
             input_filenames=[pmid_filename.as_posix()],
             output_format=output_format,
             output_filename=str(tmpfile_path),
