@@ -140,6 +140,7 @@ def test_multiple_annotators():
                 },
             ),
         ],
+        location=[],
     )
 
     # Make sure that all the annotations are identical between NodeNorm and NameRes.

@@ -3,7 +3,10 @@
 # Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
+import logging
+
 import requests
+from cachetools import LRUCache
 
 from renci_ner.core import (
     AnnotatedText,
@@ -11,6 +14,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"
@@ -51,6 +55,13 @@ class BabelSAPBERTAnnotator(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
+
+        # Set up a cache.
+        self.cache = LRUCache(maxsize=10_000)
+
+    def __str__(self):
+        return f"BabelSAPBERTAnnotator(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version})"
 
     def supported_properties(self):
         """Configurable properties for SAPBERT."""
@@ -58,18 +69,30 @@ class BabelSAPBERTAnnotator(Annotator):
             "timeout": "The timeout in seconds for requests to SAPBERT. Default: 120 seconds.",
             "limit": "The maximum number of results to return.",
             "score": "The minimum score for this result returned by SAPBERT (higher is better).",
+            "skip_cache": "Do not use the cache (default: FALSE)",
         }
 
-    def annotate(self, text, props=None) -> AnnotatedText:
+    def annotate(self, text, props=None, location: list[str] = None) -> AnnotatedText:
         """
         Annotate text using BabelSAPBERT.
 
         :param text: The text to annotate.
         :param props: The properties to pass to SAPBERT.
+        :param location: The location of the text in the original document.
         :return: An AnnotatedText object containing the annotations.
         """
         if props is None:
             props = {}
+
+        if location is None:
+            location = []
+
+        flag_skip_cache = False
+        if "skip_cache" in props and props["skip_cache"]:
+            flag_skip_cache = True
+
+        if not flag_skip_cache and text in self.cache:
+            return self.cache[text]
 
         session = self.requests_session
         timeout = props.get("timeout", 120)
@@ -77,15 +100,20 @@ class BabelSAPBERTAnnotator(Annotator):
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
 
+        data = {
+            "text": text,
+            "model_name": "sapbert",
+            "count": limit,
+        }
         response = session.post(
             self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
+            json=data,
             timeout=timeout,
         )
+
+        if response.status_code == 403:
+            log_http_403_errors(text, self.annotate_url, data, logger=self.logger)
+            return AnnotatedText(text, [], location=location)
 
         response.raise_for_status()
         results = response.json()
@@ -115,4 +143,8 @@ class BabelSAPBERTAnnotator(Annotator):
                 )
             )
 
-        return AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations, location=location)
+        if not flag_skip_cache:
+            self.cache[text] = final_result
+
+        return final_result

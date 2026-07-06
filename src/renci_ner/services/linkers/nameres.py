@@ -3,7 +3,10 @@
 # Source code: https://github.com/TranslatorSRI/NameResolution
 # Hosted at: https://name-resolution-sri.renci.org/docs
 #
+import logging
+
 import requests
+from cachetools import LRUCache
 
 from renci_ner.core import (
     AnnotatedText,
@@ -11,6 +14,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"
@@ -48,6 +52,13 @@ class NameRes(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
+
+        # Set up a cache.
+        self.cache = LRUCache(maxsize=10_000)
+
+    def __str__(self):
+        return f"NameRes(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version}"
 
     def supported_properties(self):
         """Configurable properties for NameRes."""
@@ -60,36 +71,53 @@ class NameRes(Annotator):
             "only_prefixes": "(list of prefixes, default: []) The prefixes to filter results to, combined with OR.",
             "exclude_prefixes": "(list of prefixes, default: []) The prefixes to exclude from search results, combined with AND.",
             "only_taxa": "(list of taxa, default: []) The taxa to filter results to as NCBITaxon identifiers, combined with OR.",
+            "skip_cache": "(true/false, default: false) Do not use the cache.",
         }
 
-    def annotate(self, text, props=None) -> AnnotatedText:
+    def annotate(self, text, props=None, location: list[str] = None) -> AnnotatedText:
         """
         Annotate a piece of text using NameRes.
 
         :param text: A piece of text with the label of a biomedical entity (e.g. "brain" or "ACT1").
         :param props: A dictionary of properties to configure NameRes.
+        :param location: The location of the text in the original document.
         :return: An AnnotatedText object containing the annotations.
         """
         if props is None:
             props = {}
 
+        if location is None:
+            location = []
+
+        flag_skip_cache = False
+        if "skip_cache" in props and props["skip_cache"]:
+            flag_skip_cache = True
+
+        if not flag_skip_cache and text in self.cache:
+            return self.cache[text]
+
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
+        params = {
+            "string": text,
+            "autocomplete": props.get("autocomplete", "false"),
+            "limit": props.get("limit", 10),
+            "highlighting": props.get("highlighting", "false"),
+            "biolink_type": "|".join(props.get("biolink_types", [])),
+            "only_prefixes": "|".join(props.get("only_prefixes", [])),
+            "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
+            "only_taxa": "|".join(props.get("only_taxa", [])),
+        }
         response = session.get(
             self.lookup_url,
-            params={
-                "string": text,
-                "autocomplete": props.get("autocomplete", "false"),
-                "limit": props.get("limit", 10),
-                "highlighting": props.get("highlighting", "false"),
-                "biolink_type": "|".join(props.get("biolink_types", [])),
-                "only_prefixes": "|".join(props.get("only_prefixes", [])),
-                "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
-                "only_taxa": "|".join(props.get("only_taxa", [])),
-            },
+            params=params,
             timeout=timeout,
         )
+
+        if response.status_code == 403:
+            log_http_403_errors(text, self.lookup_url, params, logger=self.logger)
+            return AnnotatedText(text, [], location=location)
 
         response.raise_for_status()
         results = response.json()
@@ -118,4 +146,8 @@ class NameRes(Annotator):
             for result in results
         ]
 
-        return AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations, location=location)
+        if not flag_skip_cache:
+            self.cache[text] = final_result
+
+        return final_result

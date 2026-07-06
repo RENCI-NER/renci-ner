@@ -14,6 +14,14 @@ class AnnotationProvenance:
     url: str
     version: str
 
+    def to_dict(self):
+        return {
+            "@type": "renci_ner:AnnotationProvenance",
+            "name": self.name,
+            "url": self.url,
+            "version": self.version,
+        }
+
 
 @dataclass
 class Annotation:
@@ -40,6 +48,20 @@ class Annotation:
     def provenances(self) -> list[AnnotationProvenance]:
         """Return a list of provenances for this annotation and its based_on annotations."""
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
+
+    def to_dict(self):
+        return {
+            "@type": "renci_ner:Annotation",
+            "text": self.text,
+            "id": self.id,
+            "label": self.label,
+            "type": self.type,
+            "start": self.start,
+            "end": self.end,
+            "provenance": self.provenance.to_dict(),
+            "based_on": [ann.to_dict() for ann in self.based_on],
+            "props": self.props,
+        }
 
 
 @dataclass
@@ -123,15 +145,35 @@ class NormalizedAnnotation(Annotation):
             biolink_type=biolink_type,
         )
 
+    def to_dict(self):
+        d = super().to_dict()
+        d["@type"] = "renci_ner:NormalizedAnnotation"
+        d["biolink_type"] = self.biolink_type
+        return d
+
 
 @dataclass
 class AnnotatedText:
     """
     A class for storing a text along with a set of annotations from a single source.
+
+    - text: The text to annotate.
+    - annotations: A list of annotations. Each annotation knows where it is relative to this
+      AnnotatedText object in terms of start/end.
+    - location: A list of strings describing the location of the text in the original document.
+      This is deliberately left undefined to allow for flexibility in how the location is represented.
+      Different formats are expected to be able to share location structure between readers and writers,
+      so that e.g. a CSV file can be read, annotated and then written back out in a structure similar
+      to what went in.
     """
 
     text: str
     annotations: list[Annotation] = field(default_factory=list)
+    location: list[str] = field(default_factory=list)
+
+    @property
+    def combined_location(self):
+        return "::".join(self.location)
 
     def transform(self, transformer: "Transformer", props: dict = None) -> Self:
         """
@@ -169,6 +211,10 @@ class AnnotatedText:
         if props is None:
             props = {}
 
+        if len(self.annotations) == 0:
+            # No annotations? Reannotate the entire text.
+            return annotator.annotate(self.text, props=props, location=self.location)
+
         new_annotations = []
         for annotation in self.annotations:
             annotated_text = annotator.annotate(annotation.text, props=props)
@@ -197,7 +243,43 @@ class AnnotatedText:
 
                     new_annotations.append(reannotation)
 
-        return AnnotatedText(self.text, new_annotations)
+        return AnnotatedText(self.text, new_annotations, location=self.location)
+
+    def annotate_with(
+        self,
+        annotators: list["AnnotatorWithProps"],
+    ):
+        """
+        Annotate an AnnotatedText with a list of AnnotatorWithProps objects.
+
+        :param annotators: A list of AnnotatorWithProps objects to use for annotation.
+        :return: An Annotated text.
+        """
+        annotated_text = self
+        for annotator_with_props in annotators:
+            annotated_text = annotated_text.reannotate(
+                annotator_with_props.annotator, annotator_with_props.props
+            )
+        return annotated_text
+
+    def __str__(self):
+        if len(self.annotations) < 20:
+            annotations_str = ", ".join(map(str, self.annotations))
+        else:
+            annotations_str = f"{len(self.annotations)} annotations"
+
+        if len(self.text) < 100:
+            return f"AnnotatedText(text='{self.text}', location='{self.combined_location}', annotations={annotations_str})"
+        else:
+            return f"AnnotatedText(text='{self.text[:100]}...', location='{self.combined_location}', annotations={annotations_str})"
+
+    def to_dict(self):
+        return {
+            "@type": "renci_ner:AnnotatedText",
+            "text": self.text,
+            "location": self.location,
+            "annotations": [annotation.to_dict() for annotation in self.annotations],
+        }
 
 
 class Annotator:
@@ -218,16 +300,19 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def annotate(
+        self, text: str, props: dict = None, location: list[str] = None
+    ) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`.
 
         :param text: The text to annotate.
         :param props: Properties supported by this annotator to use during the annotation.
+        :param location: A list of strings describing the location of the text in the original document.
         :return AnnotatedText: The annotated text.
         """
-        return AnnotatedText(text, [])
+        return AnnotatedText(text, [], [])
 
     def supported_properties(self) -> dict[str, str]:
         """
@@ -237,6 +322,17 @@ class Annotator:
         :return: A dictionary of supported properties, with the values describing each property.
         """
         return {}
+
+
+@dataclass
+class AnnotatorWithProps:
+    """
+    Sometimes we need to share a set of annotators along with the properties used to execute them. This case class
+    can encapsulate that functionality.
+    """
+
+    annotator: Annotator
+    props: dict = field(default_factory=dict)
 
 
 class Transformer:
@@ -266,14 +362,3 @@ class Transformer:
         :return: The transformed AnnotatedText.
         """
         return annotated_text
-
-
-@dataclass
-class AnnotatorWithProps:
-    """
-    Sometimes we need to share a set of annotators along with the properties used to execute them. This case class
-    can encapsulate that functionality.
-    """
-
-    annotator: Annotator
-    props: dict = field(default_factory=dict)

@@ -28,9 +28,9 @@ from renci_ner.core import (
     AnnotationProvenance,
     Annotator,
     AnnotatorWithProps,
-    NormalizedAnnotation,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
@@ -85,14 +85,6 @@ class BagelResult:
 
     @staticmethod
     def get_bagel_sort_key(br) -> tuple:
-        if not isinstance(br, BagelResult):
-            raise TypeError(
-                f"get_synonym_type_order_key({br}) called, but we can only work with BagelResult objects, got {type(br)} instead."
-            )
-
-        if not br:
-            return 999, 999
-
         # We need to sort in two ways:
         # - Bagel results are marked as exact, broad, narrow or related. We want to sort exact matches first, followed by the others.
         # - If we have multiple matches in a category, we want to figure out some way of choosing one.
@@ -154,6 +146,7 @@ class BagelAnnotator(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
 
         # TODO: properly configure NodeNorm.
         self.nodenorm = NodeNorm()
@@ -186,53 +179,72 @@ class BagelAnnotator(Annotator):
             bagel_props = {}
         timeout = bagel_props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
         limit = bagel_props.get("limit", DEFAULT_LIMIT)
+        nodenorm_props = {"description": True, "timeout": timeout}
 
-        output_annotations = []
-        for ann in text.annotations:
-            possible_matches = set()
+        # --- Pass 1: run all annotators, collect results, accumulate identifiers ---
+        per_ann_results = []   # list of (ann, [(result_ann, annotator_with_props), ...])
+        all_identifiers = set()
 
-            # Run it through every annotator, and collect all the resulting matches.
+        for index, ann in enumerate(text.annotations):
+            self.logger.debug(
+                f"Annotating '{ann.text}' with Bagel ({index}/{len(text.annotations)})"
+            )
+            ann_matches = []
             for annotator_with_props in annotators:
                 annotator = annotator_with_props.annotator
                 annotator_props = annotator_with_props.props
-
-                result = annotator.annotate(ann.text, annotator_props)
+                result = annotator.annotate(
+                    ann.text, annotator_props, location=text.location
+                )
                 for result_ann in result.annotations:
-                    identifier = result_ann.id
-                    entity_type = result_ann.type
-                    description = ""
+                    ann_matches.append((result_ann, annotator_with_props))
+                    all_identifiers.add(result_ann.id)
+            per_ann_results.append((ann, ann_matches))
 
-                    normalized = self.nodenorm.normalize(
-                        [identifier], {"description": True, "timeout": timeout}
-                    )
-                    if identifier in normalized:
-                        norm_result = normalized[identifier]
-                        if norm_result is not None:
-                            if "type" in norm_result:
-                                entity_type = norm_result["type"][0]
-                            if "id" in norm_result:
-                                if "description" in norm_result:
-                                    description = norm_result["description"]
+        # --- Single bulk NodeNorm call for all collected identifiers ---
+        normalized = self.nodenorm.normalize(list(all_identifiers), nodenorm_props)
 
-                    possible_matches.add(
-                        BagelResult(
-                            label=result_ann.label,
-                            identifier=result_ann.id,
-                            description=description,
-                            entity_type=entity_type,
-                            # TODO: implement taxa
-                            #   - Should include this for genes and proteins for NameRes
-                            #   - Might be worth putting in a default, but probably not needed.
-                            taxa="",
-                            taxa_ids="",
-                        )
-                    )
-
-            # If we don't have any possible matches, we can just leave this annotation as-is.
-            if len(possible_matches) == 0:
+        # --- Pass 2: build BagelResults and query Bagel ---
+        output_annotations = []
+        for ann, ann_matches in per_ann_results:
+            if not ann_matches:
                 output_annotations.append(ann)
                 continue
 
+            possible_matches = set()
+            for result_ann, annotator_with_props in ann_matches:
+                identifier = result_ann.id
+                entity_type = result_ann.type
+                description = ""
+
+                norm_result = normalized.get(identifier)
+                if norm_result is not None:
+                    if "type" in norm_result:
+                        entity_type = norm_result["type"][0]
+                    if "id" in norm_result and "description" in norm_result:
+                        description = norm_result["description"]
+
+                possible_matches.add(
+                    BagelResult(
+                        label=result_ann.label,
+                        identifier=identifier,
+                        description=description,
+                        entity_type=entity_type,
+                        # TODO: implement taxa
+                        #   - Should include this for genes and proteins for NameRes
+                        #   - Might be worth putting in a default, but probably not needed.
+                        taxa="",
+                        taxa_ids="",
+                    )
+                )
+
+            self.logger.debug(
+                f"Found {len(possible_matches)} possible matches for '{ann.text}'."
+            )
+
+            self.logger.debug(
+                f"Querying Bagel for '{ann.text}'."
+            )
             unique_bagel_results = self.query_bagel(
                 ann.text,
                 text.text,
@@ -245,7 +257,6 @@ class BagelAnnotator(Annotator):
             for bagel_result in unique_bagel_results:
                 if result_count >= limit:
                     break
-
                 new_based_on = list(ann.based_on)
                 new_based_on.append(ann)
                 # This is almost certainly a NormalizedAnnotation, but we don't know for sure.
@@ -266,9 +277,9 @@ class BagelAnnotator(Annotator):
                 )
                 result_count += 1
 
-        return AnnotatedText(text.text, output_annotations)
+        return AnnotatedText(text.text, output_annotations, location=text.location)
 
-    @functools.cache
+    @functools.lru_cache(maxsize=10_000)
     def query_bagel(
         self,
         entity_text: str,
@@ -310,7 +321,7 @@ class BagelAnnotator(Annotator):
                 },
             },
         }
-        print(f"Bagel request: {json.dumps(request_json, indent=2)}")
+        self.logger.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
         response = session.post(
             self.rerank_url,
             json=request_json,
@@ -319,13 +330,26 @@ class BagelAnnotator(Annotator):
             timeout=timeout,
         )
 
+        # 403 errors probably mean that the RENCI Ingress is catching something it shouldn't.
+        # Don't throw an error here, just log it and move on.
+        if response.status_code == 403:
+            log_http_403_errors(
+                entity_text + "\n" + context_text,
+                self.rerank_url,
+                request_json,
+                logger=self.logger,
+            )
+            return []
+
         if not response.ok:
             raise HTTPError(
                 f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
             )
 
         result = response.json()
-        logging.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
+        self.logger.debug(
+            f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}"
+        )
 
         # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
         # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
@@ -334,74 +358,15 @@ class BagelAnnotator(Annotator):
             map(lambda x: BagelResult.from_dict(x), result),
             key=BagelResult.get_bagel_sort_key,
         )
-        print(
+        self.logger.debug(
             f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2, sort_keys=True)}"
         )
 
         unique_bagel_results = []
         # Generate a list of unique Bagel results, preserving the original order.
-        unique_bagel_results_set = {}
+        seen = set()
         for bagel_result in bagel_results:
-            if bagel_result not in unique_bagel_results_set:
+            if bagel_result not in seen:
                 unique_bagel_results.append(bagel_result)
-                unique_bagel_results_set[bagel_result] = True
+                seen.add(bagel_result)
         return unique_bagel_results
-
-    def annotate(self, text, props=None) -> AnnotatedText:
-        """
-        Annotate text using BabelSAPBERT.
-
-        TODO: needs to be completed rewritten.
-
-        :param text: The text to annotate.
-        :param props: The properties to pass to SAPBERT.
-        :return: An AnnotatedText object containing the annotations.
-        """
-        if props is None:
-            props = {}
-
-        session = self.requests_session
-        timeout = props.get("timeout", 120)
-
-        min_score = props.get("score", 0)
-        limit = props.get("limit", DEFAULT_LIMIT)
-
-        response = session.post(
-            self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
-            timeout=timeout,
-        )
-
-        response.raise_for_status()
-        results = response.json()
-
-        # Find all the results that meet our criteria.
-        annotations = []
-        for result in results:
-            if result.get("score", 0) < min_score:
-                continue
-
-            annotations.append(
-                # Since SAPBERT is normalized to Babel, we can treat it as a NormalizedAnnotation.
-                NormalizedAnnotation(
-                    text=text,
-                    id=result.get("curie", ""),
-                    label=result.get("name", ""),
-                    biolink_type=result.get("category", ""),
-                    type=result.get("category", ""),
-                    props={
-                        "score": result.get("score", 0),
-                    },
-                    provenance=self.provenance,
-                    # Since we're using the whole text, let's just use that
-                    # as the start/end.
-                    start=0,
-                    end=len(text),
-                )
-            )
-
-        return AnnotatedText(text, annotations)
