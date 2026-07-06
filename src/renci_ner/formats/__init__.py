@@ -6,6 +6,13 @@ from pathlib import Path
 from renci_ner.core import AnnotatedText
 
 
+def detect_gzip(filename: str, gzipped: bool = None) -> bool:
+    """Whether a file is gzipped: explicit override wins, else True if the name ends in .gz."""
+    if gzipped is not None:
+        return gzipped
+    return Path(filename).suffix.lower() == ".gz"
+
+
 class Format(ABC):
     """Base class for reading/writing AnnotatedText objects in a file format."""
 
@@ -41,17 +48,13 @@ def reader_for_file(
     from renci_ner.formats.txt import TextFile
 
     filepath = Path(filename)
-    suffixes = list(filepath.suffixes)
+    file_gzipped = detect_gzip(filename, gzipped or None)
 
     # Strip .gz suffix for format detection.
-    file_gzipped = False
-    if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
-        file_gzipped = True
+    suffixes = [s.lower() for s in filepath.suffixes]
+    if suffixes and suffixes[-1] == ".gz":
         suffixes.pop()
-    if gzipped:
-        file_gzipped = True
-
-    last_suffix = suffixes[-1].lower() if len(suffixes) > 0 else ""
+    last_suffix = suffixes[-1] if suffixes else ""
 
     if last_suffix == ".csv":
         return DelimitedFile(

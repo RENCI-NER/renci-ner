@@ -10,7 +10,7 @@ from io import TextIOBase
 from pathlib import Path
 
 from renci_ner.core import AnnotatedText
-from renci_ner.formats import Format
+from renci_ner.formats import Format, detect_gzip
 
 
 class DelimitedFile(Format):
@@ -23,31 +23,17 @@ class DelimitedFile(Format):
         gzipped: bool = None,
     ):
         file_path = Path(filename)
-        suffixes = list(file_path.suffixes)
+        self.gzipped = detect_gzip(filename, gzipped)
 
-        if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
-            suffixes.pop()
-            self.gzipped = True
-        else:
-            self.gzipped = False
-        if gzipped is not None:
-            self.gzipped = gzipped
-
-        if dialect is not None:
-            self.dialect = dialect
-        else:
-            if len(suffixes) > 0:
-                last_suffix = suffixes[-1].lower()
-                if last_suffix == ".csv":
-                    self.dialect = "excel"
-                elif last_suffix == ".tsv":
-                    self.dialect = "excel-tab"
-                else:
-                    raise ValueError(
-                        f"Unsupported file type for DelimitedFile: {filename}"
-                    )
-            else:
-                self.dialect = "excel"
+        if dialect is None:
+            # Infer dialect from the suffix (ignoring any .gz): .tsv is tab-delimited,
+            # everything else defaults to comma-delimited.
+            suffixes = [s.lower() for s in file_path.suffixes]
+            if suffixes and suffixes[-1] == ".gz":
+                suffixes.pop()
+            last_suffix = suffixes[-1] if suffixes else ""
+            dialect = "excel-tab" if last_suffix == ".tsv" else "excel"
+        self.dialect = dialect
 
         self.columns_include = (
             set(columns_include) if columns_include is not None else set()
@@ -64,19 +50,11 @@ class DelimitedFile(Format):
 
         self.logger = logging.getLogger(__name__)
 
-    def read_file(self, include_empty=False, combine_columns=False, root_location=None):
+    def read_file(self, root_location=None):
         """
-        Reads a delimited file and generates a sequence of AnnotatedText objects based
-        on its rows and columns. The function supports options to combine multiple
-        columns or process them individually, while also allowing control over which
-        columns to include or exclude.
+        Reads a delimited file and generates a sequence of AnnotatedText objects, one
+        per non-empty cell in the included columns.
 
-        :param include_empty: A boolean flag. If True, includes cells with empty values
-            in the generated AnnotatedText objects. If False, skips such rows. Defaults
-            to False.
-        :param combine_columns: A boolean flag. If True, combines the specified columns
-            into a single AnnotatedText object per row. If False, yields individual
-            AnnotatedText objects for each column. Defaults to False.
         :param root_location: An optional string that specifies a root location
             to be associated with the AnnotatedText objects' location metadata. If None,
             it uses the filename of the input file.
@@ -110,35 +88,20 @@ class DelimitedFile(Format):
             for row in reader:
                 self.row_count += 1
 
-                if combine_columns:
-                    text = "\n".join([row[column] for column in columns_to_include])
-                    if not include_empty and text.strip() == "":
+                for column in columns_to_include:
+                    text = row[column]
+                    if text.strip() == "":
                         continue
                     yield AnnotatedText(
-                        text,
+                        row[column],
                         location=[
                             root_location,
                             self.__class__.__name__,
                             f"row={self.row_count}",
-                            "combined_columns",
+                            column,
                         ],
                     )
                     count_texts += 1
-                else:
-                    for column in columns_to_include:
-                        text = row[column]
-                        if not include_empty and text.strip() == "":
-                            continue
-                        yield AnnotatedText(
-                            row[column],
-                            location=[
-                                root_location,
-                                self.__class__.__name__,
-                                f"row={self.row_count}",
-                                column,
-                            ],
-                        )
-                        count_texts += 1
 
         self.logger.info(
             f"Generated {count_texts} AnnotatedText objects from {self.row_count} rows in {self.filename}."
@@ -151,9 +114,7 @@ class DelimitedFile(Format):
             # We pretend we have a single column called "text".
             return "text"
 
-    def write_file(
-        self, texts: list[AnnotatedText], file: TextIOBase, duplicate_values=False
-    ):
+    def write_file(self, texts: list[AnnotatedText], file: TextIOBase, **kwargs):
         """Write annotated texts to a CSV file."""
 
         col_names = self.column_names
@@ -219,9 +180,8 @@ class DelimitedFile(Format):
 
                     writer.writerow(row_values_with_annotation)
 
-                    if not duplicate_values:
-                        # If we're not writing duplicate values, reset the row values so subsequent annotations
-                        # don't duplicate those values.
-                        row_values_with_annotation = {
-                            colname: "" for colname in written_colnames
-                        }
+                    # Reset the row values so subsequent annotations in the same row
+                    # don't duplicate the cell values already written.
+                    row_values_with_annotation = {
+                        colname: "" for colname in written_colnames
+                    }

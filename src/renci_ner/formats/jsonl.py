@@ -8,22 +8,13 @@ from io import TextIOBase
 from pathlib import Path
 
 from renci_ner.core import AnnotatedText
-from renci_ner.formats import Format
+from renci_ner.formats import Format, detect_gzip
 
 
 class JsonlFile(Format):
     def __init__(self, filename: str, gzipped: bool = None):
         file_path = Path(filename)
-        suffixes = list(file_path.suffixes)
-
-        if len(suffixes) > 0 and suffixes[-1].lower() == ".gz":
-            suffixes.pop()
-            self.gzipped = True
-        else:
-            self.gzipped = False
-
-        if gzipped is not None:
-            self.gzipped = gzipped
+        self.gzipped = detect_gzip(filename, gzipped)
 
         self.file_path = file_path
         self.filename = filename
