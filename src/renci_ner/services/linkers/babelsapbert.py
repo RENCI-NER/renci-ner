@@ -3,7 +3,10 @@
 # Source code: https://github.com/RENCI-NER/sapbert
 # Hosted at: https://sap-qdrant.apps.renci.org/docs
 #
+import logging
+
 import requests
+from cachetools import LRUCache
 
 from renci_ner.core import (
     AnnotatedText,
@@ -11,6 +14,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import log_http_403_errors
 
 # Configuration.
 RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"
@@ -51,6 +55,13 @@ class BabelSAPBERTAnnotator(Annotator):
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(
             "version", "NA"
         )
+        self.logger = logging.getLogger(str(self))
+
+        # Set up a cache.
+        self.cache = LRUCache(maxsize=10_000)
+
+    def __str__(self):
+        return f"BabelSAPBERTAnnotator(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version}"
 
     def supported_properties(self):
         """Configurable properties for SAPBERT."""
@@ -58,6 +69,7 @@ class BabelSAPBERTAnnotator(Annotator):
             "timeout": "The timeout in seconds for requests to SAPBERT. Default: 120 seconds.",
             "limit": "The maximum number of results to return.",
             "score": "The minimum score for this result returned by SAPBERT (higher is better).",
+            "skip_cache": "Do not use the cache (default: FALSE)",
         }
 
     def annotate(self, text, props=None) -> AnnotatedText:
@@ -71,21 +83,38 @@ class BabelSAPBERTAnnotator(Annotator):
         if props is None:
             props = {}
 
+        flag_skip_cache = False
+        if "skip_cache" in props and props["skip_cache"]:
+            flag_skip_cache = True
+
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
 
+        # The cache key includes every param that affects the results, not
+        # just the text, so that different props for the same text don't
+        # collide in the cache.
+        cache_key = (text, limit, min_score)
+
+        if not flag_skip_cache and cache_key in self.cache:
+            return self.cache[cache_key]
+
+        data = {
+            "text": text,
+            "model_name": "sapbert",
+            "count": limit,
+        }
         response = session.post(
             self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
+            json=data,
             timeout=timeout,
         )
+
+        if response.status_code == 403:
+            log_http_403_errors(text, self.annotate_url, data, logger=self.logger)
+            return AnnotatedText(text, [])
 
         response.raise_for_status()
         results = response.json()
@@ -115,4 +144,8 @@ class BabelSAPBERTAnnotator(Annotator):
                 )
             )
 
-        return AnnotatedText(text, annotations)
+        final_result = AnnotatedText(text, annotations)
+        if not flag_skip_cache:
+            self.cache[cache_key] = final_result
+
+        return final_result
