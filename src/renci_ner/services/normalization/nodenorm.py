@@ -95,10 +95,25 @@ class NodeNorm(Transformer):
             )
             return {}
 
+        # The cache key includes every prop that affects the normalized
+        # result, not just the identifier, so that different props for the
+        # same identifier don't collide in the cache.
+        conflation_key = (
+            props.get("geneprotein_conflation", True),
+            props.get("drugchemical_conflation", False),
+            props.get("description", False),
+        )
+
         identifiers_to_query = identifiers
         if not flag_skip_cache:
             # Remove identifiers that are already in the cache.
-            identifiers_to_query = list(set(identifiers) - self.cache.keys())
+            identifiers_to_query = list(
+                {
+                    identifier
+                    for identifier in identifiers
+                    if (identifier, conflation_key) not in self.cache
+                }
+            )
 
         normalization_results = {}
         if identifiers_to_query:
@@ -122,18 +137,23 @@ class NodeNorm(Transformer):
                     logger=self.logger,
                 )
             elif not response.ok:
-                raise Exception(f"NodeNorm returned status code {response.status_code}")
+                logging.error(
+                    f"NodeNorm returned status code {response.status_code} {response.text} "
+                    f"for CURIEs {identifiers_to_query}, skipping."
+                )
             else:
                 normalization_results = response.json()
 
         if not flag_skip_cache:
             # Update the cache with the new results.
-            self.cache.update(normalization_results)
+            for identifier, result in normalization_results.items():
+                self.cache[(identifier, conflation_key)] = result
 
             # Put the cached identifiers back in.
-            identifiers_to_reinsert = set(identifiers) & self.cache.keys()
-            for identifier in identifiers_to_reinsert:
-                normalization_results[identifier] = self.cache[identifier]
+            for identifier in identifiers:
+                cache_key = (identifier, conflation_key)
+                if cache_key in self.cache:
+                    normalization_results[identifier] = self.cache[cache_key]
 
         return normalization_results
 
