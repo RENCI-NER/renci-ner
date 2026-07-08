@@ -191,6 +191,8 @@ class AnnotatedText:
 
         Note that this does NOT mean that the original text is reannotated -- rather, each individual annotation
         will be annotated by the next annotator. This allows us to standardize some common situations:
+        - If there are no existing annotations at all, there is nothing to reannotate individually, so the
+          annotator is run directly on the full text instead.
         - If an annotation could not be annotated by the next annotator, it will be left as-is.
         - If an annotation is annotated by the next annotator with a single annotation, we will replace the previous
           annotation with this annotation, but update provenance and based_on fields.
