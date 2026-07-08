@@ -61,7 +61,7 @@ class BabelSAPBERTAnnotator(Annotator):
         self.cache = LRUCache(maxsize=10_000)
 
     def __str__(self):
-        return f"BabelSAPBERTAnnotator(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version})"
+        return f"BabelSAPBERTAnnotator(url={self.url}, requests_session={self.requests_session}) with version {self.openapi_version}"
 
     def supported_properties(self):
         """Configurable properties for SAPBERT."""
@@ -87,14 +87,19 @@ class BabelSAPBERTAnnotator(Annotator):
         if "skip_cache" in props and props["skip_cache"]:
             flag_skip_cache = True
 
-        if not flag_skip_cache and text in self.cache:
-            return self.cache[text]
-
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
+
+        # The cache key includes every param that affects the results, not
+        # just the text, so that different props for the same text don't
+        # collide in the cache.
+        cache_key = (text, limit, min_score)
+
+        if not flag_skip_cache and cache_key in self.cache:
+            return self.cache[cache_key]
 
         data = {
             "text": text,
@@ -141,6 +146,6 @@ class BabelSAPBERTAnnotator(Annotator):
 
         final_result = AnnotatedText(text, annotations)
         if not flag_skip_cache:
-            self.cache[text] = final_result
+            self.cache[cache_key] = final_result
 
         return final_result

@@ -89,9 +89,6 @@ class NameRes(Annotator):
         if "skip_cache" in props and props["skip_cache"]:
             flag_skip_cache = True
 
-        if not flag_skip_cache and text in self.cache:
-            return self.cache[text]
-
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
@@ -105,6 +102,14 @@ class NameRes(Annotator):
             "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
             "only_taxa": "|".join(props.get("only_taxa", [])),
         }
+        # The cache key includes every param that affects the query results,
+        # not just the text, so that different props for the same text don't
+        # collide in the cache.
+        cache_key = tuple(sorted(params.items()))
+
+        if not flag_skip_cache and cache_key in self.cache:
+            return self.cache[cache_key]
+
         response = session.get(
             self.lookup_url,
             params=params,
@@ -144,6 +149,6 @@ class NameRes(Annotator):
 
         final_result = AnnotatedText(text, annotations)
         if not flag_skip_cache:
-            self.cache[text] = final_result
+            self.cache[cache_key] = final_result
 
         return final_result
