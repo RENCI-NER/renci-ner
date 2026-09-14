@@ -19,8 +19,13 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "click>=8.5.0",
     "requests>=2.32.3",
+    "tqdm>=4.70.1",
 ]
+
+[project.scripts]
+renci-ner = "renci_ner.cli:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -35,6 +35,21 @@ BioMegatron().annotate(text).reannotate(NameRes(), {"limit": 1}).transform(NodeN
 
 `Pipeline` and `MultiAnnotator` are themselves `Annotator`s, so they nest.
 
+## Command line
+
+`renci-ner` annotates the texts in TXT, JSONL, CSV or TSV files (gzipped is fine)
+with one of a few standard pipelines:
+
+```shell
+$ uv run renci-ner --method biomegatron-sapbert --exclude-column id -o out.csv input.csv
+$ uv run renci-ner --method biomegatron-bagel -f jsonl abstracts.txt > out.jsonl
+```
+
+CSV/TSV output has the input row's cells followed by one row per annotation
+(`annotation_text`, `annotation_id`, `annotation_type`, offsets, provenance);
+JSONL output is one `AnnotatedText.to_dict()` per line. See `renci-ner --help`
+for the options. Bagel needs `BAGEL_USERNAME` and `BAGEL_PASSWORD` in the environment.
+
 ## Development
 
 This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
