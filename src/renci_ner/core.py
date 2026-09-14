@@ -109,13 +109,15 @@ class NormalizedAnnotation(Annotation):
         if biolink_type is None:
             biolink_type = annotation.type
 
-        return NormalizedAnnotation(
+        return cls(
             text=annotation.text,
             start=annotation.start,
             end=annotation.end,
             provenance=provenance,
             based_on=[*annotation.based_on, annotation],
-            props=annotation.props,
+            # Copy, so that later edits to this annotation's props don't leak into
+            # the annotation it was based on.
+            props=dict(annotation.props),
             # These fields are overwritten during normalization.
             id=curie,
             label=label,
@@ -192,8 +194,10 @@ class AnnotatedText:
                     reannotation.start = base_start + new_start
                     reannotation.end = base_start + new_start + text_size
 
-                    reannotation.provenance = annotator.provenance
-                    reannotation.based_on = new_based_on
+                    # Each reannotation gets its own list. Anything the annotator
+                    # already recorded in based_on (e.g. a nested pipeline) goes
+                    # after our chain, since it happened later.
+                    reannotation.based_on = [*new_based_on, *reannotation.based_on]
 
                     new_annotations.append(reannotation)
 
