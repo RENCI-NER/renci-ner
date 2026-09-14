@@ -1,5 +1,8 @@
 import csv
+import gzip
 import io
+
+import pytest
 
 from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance
 from renci_ner.formats import DelimitedFile, reader_for_file, writer_for_format
@@ -90,3 +93,47 @@ def test_write_texts_without_locations():
     writer_for_format("tsv").write([AnnotatedText("a"), AnnotatedText("b")], out)
     rows = list(csv.DictReader(io.StringIO(out.getvalue()), dialect="excel-tab"))
     assert [r["text"] for r in rows] == ["a", "b"]
+
+
+def test_unknown_include_column_is_an_error(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text(CSV)
+    with pytest.raises(ValueError, match="nope"):
+        list(DelimitedFile(str(path), columns_include=["nope"]).read())
+
+
+def test_rows_from_different_files_stay_separate(tmp_path):
+    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
+    a.write_text("text\nfrom a\n")
+    b.write_text("text\nfrom b\n")
+    texts = list(reader_for_file(str(a)).read()) + list(reader_for_file(str(b)).read())
+    assert [t.location[1] for t in texts] == ["row=1", "row=1"]
+
+    out = io.StringIO()
+    writer_for_format("csv").write(texts, out)
+    rows = list(csv.DictReader(io.StringIO(out.getvalue())))
+    assert [r["text"] for r in rows] == ["from a", "from b"]
+
+
+def test_delimiters_quotes_and_newlines_round_trip(tmp_path):
+    tricky = 'He said "brain, not heart"\nand left.'
+    path = tmp_path / "in.csv"
+    with open(path, "w", newline="") as f:
+        csv.writer(f).writerows([["text"], [tricky]])
+
+    (text,) = reader_for_file(str(path)).read()
+    assert text.text == tricky
+
+    out = io.StringIO()
+    writer_for_format("csv").write([text], out)
+    (row,) = csv.DictReader(io.StringIO(out.getvalue()))
+    assert row["text"] == tricky
+
+
+def test_gzipped_csv(tmp_path):
+    path = tmp_path / "in.csv.gz"
+    with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
+        f.write("id,text\n1,brain\n")
+    reader = reader_for_file(str(path), columns_exclude=["id"])
+    assert isinstance(reader, DelimitedFile)
+    assert [t.text for t in reader.read()] == ["brain"]
