@@ -27,7 +27,7 @@ class BioMegatron(Annotator):
     def __init__(
         self,
         url=RENCI_BIOMEGATRON_URL,
-        requests_session=requests.Session(),
+        requests_session=None,
         timeout=120,
     ):
         """
@@ -39,7 +39,7 @@ class BioMegatron(Annotator):
         """
         self.url = url
         self.annotate_url = url + "/annotate/"
-        self.requests_session = requests_session
+        self.requests_session = requests_session or requests.Session()
 
         result = self.requests_session.get(self.url + "/openapi.json", timeout=timeout)
         result.raise_for_status()

@@ -130,9 +130,7 @@ class BagelAnnotator(Annotator):
             name="Bagel", url=RENCI_BAGEL_URL, version=self.openapi_version
         )
 
-    def __init__(
-        self, url=RENCI_BAGEL_URL, requests_session=requests.Session(), timeout=120
-    ):
+    def __init__(self, url=RENCI_BAGEL_URL, requests_session=None, timeout=120):
         """
         Set up a Bagel service.
 
@@ -142,7 +140,7 @@ class BagelAnnotator(Annotator):
         """
         self.url = url
         self.rerank_url = url + "/group_synonyms_openai"
-        self.requests_session = requests_session
+        self.requests_session = requests_session or requests.Session()
 
         response = self.requests_session.get(
             self.url + "/openapi.json",
