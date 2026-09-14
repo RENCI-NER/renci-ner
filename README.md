@@ -3,7 +3,41 @@ A library for accessing RENCI NER services
 
 ## Usage
 
-This package uses [uv](https://github.com/astral-sh/uv) and [poetry](https://python-poetry.org/) for Python packaging,
+```python
+from renci_ner.core import Pipeline, MultiAnnotator
+from renci_ner.services.ner.biomegatron import BioMegatron
+from renci_ner.services.linkers.nameres import NameRes
+from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
+from renci_ner.services.linkers.bagel import BagelAnnotator
+from renci_ner.services.normalization.nodenorm import NodeNorm
+
+# Recognize entities with BioMegatron, link each one with NameRes, normalize with NodeNorm.
+pipeline = Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm())
+result = pipeline.annotate("The brain is part of the nervous system.")
+for annotation in result.annotations:
+    print(annotation, [p.name for p in annotation.provenances])
+
+# Collect candidates from two linkers and let Bagel (an LLM re-ranker) choose.
+pipeline = Pipeline(
+    BioMegatron(),
+    MultiAnnotator((BabelSAPBERTAnnotator(), {"limit": 10}), (NameRes(), {"limit": 10})),
+    (BagelAnnotator(), {"limit": 1}),
+)
+```
+
+A `Pipeline` step is a service or a `(service, props)` tuple. The first step is an
+`Annotator` and runs on the text; later `Annotator`s are applied with `reannotate()`
+and `Transformer`s with `transform()`. The same thing can be written out by hand:
+
+```python
+BioMegatron().annotate(text).reannotate(NameRes(), {"limit": 1}).transform(NodeNorm())
+```
+
+`Pipeline` and `MultiAnnotator` are themselves `Annotator`s, so they nest.
+
+## Development
+
+This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
 and [pytest](https://docs.pytest.org/en/stable/) for testing.
 
 You can run the tests by running:
@@ -92,8 +126,10 @@ Additionally, `AnnotatedText` has methods to help chain
 `Annotators` and `Transformers` together.
 
 * `reannotate()`: Reannotate the annotations in this AnnotatedText using a
-  particular Annotator. By default, each annotator text is run through the
-  annotator and -- if changed -- the new annotation is used.
+  particular Annotator. Each annotation's text is run through the annotator;
+  if it returns nothing the annotation is kept, otherwise it is replaced by
+  the annotator's results (all of them, so a linker with `limit: 10` yields
+  ten annotations for the same span).
 * `transform()`: Transform the annotations in this AnnotatedText using a
   particular Transformer. Transformers can modify the entire AnnotatedText
   in any way they see fit, as long as they keep the previous annotations
@@ -170,10 +206,19 @@ identifiers to biomedical identifiers.
 
 e.g. BioMegatron -> NameRes, BioMegatron -> BabelSAPBERT
 
+`MultiAnnotator` runs several annotators on the same text and returns all of their
+annotations, which is how candidates from several linkers are gathered for a re-ranker.
+
 ### Transformer
 
 A transformer transforms an AnnotatedText into another AnnotatedText.
-AnnotatedText allows transformers to be chained, but doesn't really provide any special features
-for that.
 
-e.g. NodeNorm for normalizing IDs.
+e.g. NodeNorm for normalizing IDs; Bagel for choosing among the linked candidates at
+each span (an annotation is a candidate if it is a `NormalizedAnnotation`; spans with
+no candidates pass through unchanged).
+
+### Pipeline
+
+A `Pipeline` is an Annotator built from a list of steps: the first step annotates the
+text, then each later step is applied with `reannotate()` (Annotators) or `transform()`
+(Transformers). See Usage above.
