@@ -29,6 +29,9 @@ class BabelSAPBERTAnnotator(Annotator):
             name="BabelSAPBERT", url=RENCI_SAPBERT_URL, version=self.openapi_version
         )
 
+    def __str__(self):
+        return f"BabelSAPBERTAnnotator(url={self.url}, version={self.openapi_version})"
+
     def __init__(self, url=RENCI_SAPBERT_URL, requests_session=None, timeout=120):
         """
         Set up a SAPBERT service.

@@ -28,6 +28,9 @@ class NameRes(Annotator):
             name="NameRes", url=RENCI_NAMERES_URL, version=self.openapi_version
         )
 
+    def __str__(self):
+        return f"NameRes(url={self.url}, version={self.openapi_version})"
+
     def __init__(self, url=RENCI_NAMERES_URL, requests_session=None, timeout=120):
         """
         Set up a NameRes service.

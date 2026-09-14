@@ -25,10 +25,8 @@ def test_check():
 
     umls_C1412149 = results["UMLS:C1412149"]
     assert "id" in umls_C1412149
-    assert umls_C1412149["id"] == {
-        "identifier": "NCBIGene:71",
-        "label": "ACTG1",
-    }
+    assert umls_C1412149["id"]["identifier"] == "NCBIGene:71"
+    assert umls_C1412149["id"]["label"] == "ACTG1"
     assert "information_content" in umls_C1412149
     assert umls_C1412149["taxa"] == ["NCBITaxon:9606"]
 
@@ -105,6 +103,10 @@ def test_with_transform():
         nodenorm, {"geneprotein_conflation": True}
     )
 
+    # Information content changes between Babel releases, so check its type and
+    # drop it before comparing everything else.
+    assert isinstance(result_nodenorm.annotations[0].props.pop("ic"), float)
+
     assert result_nodenorm == AnnotatedText(
         "What does actin do?",
         [
@@ -153,7 +155,6 @@ def test_with_transform():
                         ],
                         props={
                             "highlighting": {},
-                            "ic": None,
                             "taxa": [
                                 "NCBITaxon:9606",
                             ],
@@ -179,7 +180,6 @@ def test_with_transform():
                 ],
                 props={
                     "highlighting": {},
-                    "ic": None,
                     "taxa": [
                         "NCBITaxon:9606",
                     ],

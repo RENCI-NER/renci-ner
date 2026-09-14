@@ -24,6 +24,9 @@ class BioMegatron(Annotator):
             name="BioMegatron", url=RENCI_BIOMEGATRON_URL, version=self.openapi_version
         )
 
+    def __str__(self):
+        return f"BioMegatron(url={self.url}, version={self.openapi_version})"
+
     def __init__(
         self,
         url=RENCI_BIOMEGATRON_URL,

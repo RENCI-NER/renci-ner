@@ -16,7 +16,7 @@ import functools
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import requests
 from requests import HTTPError
@@ -124,6 +124,9 @@ class BagelAnnotator(Annotator):
         return AnnotationProvenance(
             name="Bagel", url=RENCI_BAGEL_URL, version=self.openapi_version
         )
+
+    def __str__(self):
+        return f"BagelAnnotator(url={self.url}, version={self.openapi_version})"
 
     def __init__(
         self, url=RENCI_BAGEL_URL, requests_session=None, timeout=120, nodenorm=None
@@ -264,7 +267,7 @@ class BagelAnnotator(Annotator):
                 )
                 result_count += 1
 
-        return AnnotatedText(text.text, output_annotations)
+        return replace(text, annotations=output_annotations)
 
     @functools.cache
     def query_bagel(

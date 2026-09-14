@@ -4,6 +4,7 @@
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
 import logging
+from dataclasses import replace
 
 import requests
 
@@ -30,6 +31,9 @@ class NodeNorm(Transformer):
         return AnnotationProvenance(
             name="NodeNorm", url=RENCI_NODENORM_URL, version=self.openapi_version
         )
+
+    def __str__(self):
+        return f"NodeNorm(url={self.url}, version={self.openapi_version})"
 
     def __init__(self, url=RENCI_NODENORM_URL, requests_session=None, timeout=120):
         """
@@ -158,4 +162,4 @@ class NodeNorm(Transformer):
 
             output_annotations.append(normalized_annotation)
 
-        return AnnotatedText(annotated_text.text, output_annotations)
+        return replace(annotated_text, annotations=output_annotations)
