@@ -1,13 +1,9 @@
 #
-# Bagel is an LLM-based combination linker developed at RENCI.
-# Because Bagel is a re-ranker, it needs existing annotation possibilities to rerank, which can be delivered in
-# two ways:
-#   - annotate() finds text that has been annotated with multiple results
-#       - Not implemented yet: we will need some method for combining the same annotated text with different
-#         annotations into a single document of some kind. We'll need to do that anyway for doing benchmarking,
-#         so let's wait a bit and do it right (see https://github.com/RENCI-NER/renci-ner/issues/6).
-#   - annotate_with() re-annotates an AnnotatedText using the result from a list of annotators, after feeding them
-#     into Bagel.
+# Bagel is an LLM-based re-ranker developed at RENCI. It is a Transformer: given an
+# AnnotatedText whose spans carry several linked candidates (e.g. from a MultiAnnotator
+# of NameRes and SAPBERT), it asks Bagel to pick the best candidate for each span.
+#
+#     Pipeline(BioMegatron(), MultiAnnotator(sapbert, nameres), (BagelAnnotator(), {"limit": 1}))
 #
 # Source code: https://github.com/RENCI-NER/bagel
 # Hosted at: https://bagel.apps.renci.org/
@@ -24,10 +20,9 @@ from requests.auth import HTTPBasicAuth
 
 from renci_ner.core import (
     AnnotatedText,
-    Annotation,
     AnnotationProvenance,
-    Annotator,
-    AnnotatorWithProps,
+    NormalizedAnnotation,
+    Transformer,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
@@ -113,9 +108,9 @@ class BagelResult:
         return synonym_type_order, identical_synonym_type_order
 
 
-class BagelAnnotator(Annotator):
+class BagelAnnotator(Transformer):
     """
-    Provides an Annotator interface to a BAGEL service.
+    Re-ranks linked candidates on an AnnotatedText using a BAGEL service.
     """
 
     @property
@@ -169,105 +164,105 @@ class BagelAnnotator(Annotator):
             "limit": "The maximum number of results to return.",
         }
 
-    def annotate_with(
-        self,
-        text: AnnotatedText,
-        annotators: list[AnnotatorWithProps],
-        bagel_props: dict = None,
+    def transform(
+        self, annotated_text: AnnotatedText, props: dict = None
     ) -> AnnotatedText:
         """
-        Given an AnnotatedText, re-annotate it using the given list of AnnotatorWithProps objects.
+        For each span in the text, ask Bagel to choose among the linked candidates at that span.
 
-        :param bagel_props: Properties to use with Bagel.
-        :param text: An AnnotatedText containing annotations that need to be linked.
-        :param annotators: A list of AnnotatorWithProps objects to use for re-annotation.
-        :return: An AnnotatedText object containing the re-annotated annotations.
+        Candidates are the NormalizedAnnotations sharing a start/end; up to `limit` of Bagel's
+        choices replace them, each based_on the candidate it came from. Spans with no linked
+        candidates (e.g. an NER annotation no linker matched) pass through unchanged.
+
+        :param annotated_text: An AnnotatedText with candidate annotations to re-rank.
+        :param props: Properties to use with Bagel (see supported_properties).
+        :return: An AnnotatedText with Bagel's choices.
         """
-        if bagel_props is None:
-            bagel_props = {}
-        timeout = bagel_props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
-        limit = bagel_props.get("limit", DEFAULT_LIMIT)
+        if props is None:
+            props = {}
+        timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
+        limit = props.get("limit", DEFAULT_LIMIT)
+
+        spans: dict[tuple[int, int], list] = {}
+        for ann in annotated_text.annotations:
+            spans.setdefault((ann.start, ann.end), []).append(ann)
+
+        # One NodeNorm call for every candidate in the text, for descriptions and types.
+        candidate_ids = {
+            ann.id
+            for group in spans.values()
+            for ann in group
+            if isinstance(ann, NormalizedAnnotation)
+        }
+        normalized = self.nodenorm.normalize(
+            sorted(candidate_ids), {"description": True, "timeout": timeout}
+        )
 
         output_annotations = []
-        for ann in text.annotations:
-            possible_matches = set()
-
-            # Run it through every annotator, and collect all the resulting matches.
-            for annotator_with_props in annotators:
-                annotator = annotator_with_props.annotator
-                annotator_props = annotator_with_props.props
-
-                result = annotator.annotate(ann.text, annotator_props)
-                for result_ann in result.annotations:
-                    identifier = result_ann.id
-                    entity_type = result_ann.type
-                    description = ""
-
-                    normalized = self.nodenorm.normalize(
-                        [identifier], {"description": True, "timeout": timeout}
-                    )
-                    if identifier in normalized:
-                        norm_result = normalized[identifier]
-                        if norm_result is not None:
-                            if "type" in norm_result:
-                                entity_type = norm_result["type"][0]
-                            if "id" in norm_result:
-                                if "description" in norm_result:
-                                    description = norm_result["description"]
-
-                    possible_matches.add(
-                        BagelResult(
-                            label=result_ann.label,
-                            identifier=result_ann.id,
-                            description=description,
-                            entity_type=entity_type,
-                            # TODO: implement taxa
-                            #   - Should include this for genes and proteins for NameRes
-                            #   - Might be worth putting in a default, but probably not needed.
-                            taxa="",
-                            taxa_ids="",
-                        )
-                    )
-
-            # If we don't have any possible matches, we can just leave this annotation as-is.
-            if len(possible_matches) == 0:
-                output_annotations.append(ann)
+        for group in spans.values():
+            candidates = [a for a in group if isinstance(a, NormalizedAnnotation)]
+            if not candidates:
+                output_annotations.extend(group)
                 continue
 
-            unique_bagel_results = self.query_bagel(
-                ann.text,
-                text.text,
+            possible_matches = {
+                self._bagel_result(candidate, normalized.get(candidate.id))
+                for candidate in candidates
+            }
+            logger.debug(
+                f"Querying Bagel for '{candidates[0].text}' with {len(possible_matches)} candidates."
+            )
+            bagel_results = self.query_bagel(
+                candidates[0].text,
+                annotated_text.text,
                 tuple(possible_matches),
-                json.dumps(bagel_props, sort_keys=True),
+                json.dumps(props, sort_keys=True),
             )
 
-            # Update annotation with Bagel results.
-            result_count = 0
-            for bagel_result in unique_bagel_results:
-                if result_count >= limit:
-                    break
-
-                new_based_on = list(ann.based_on)
-                new_based_on.append(ann)
-                # This is almost certainly a NormalizedAnnotation, but we don't know for sure.
+            by_id = {candidate.id: candidate for candidate in candidates}
+            for bagel_result in bagel_results[:limit]:
+                winner = by_id.get(bagel_result.identifier)
+                if winner is None:
+                    # Bagel returned an identifier we didn't send; keep the NER chain only.
+                    winner = candidates[0]
+                    based_on = list(winner.based_on)
+                else:
+                    based_on = [*winner.based_on, winner]
                 output_annotations.append(
-                    Annotation(
-                        text=ann.text,
-                        start=ann.start,
-                        end=ann.end,
+                    NormalizedAnnotation(
+                        text=winner.text,
+                        start=winner.start,
+                        end=winner.end,
                         id=bagel_result.identifier,
                         label=bagel_result.label,
                         type=bagel_result.entity_type,
-                        props={
-                            "description": bagel_result.description,
-                        },
-                        based_on=new_based_on,
+                        biolink_type=bagel_result.entity_type,
+                        props={"description": bagel_result.description},
+                        based_on=based_on,
                         provenance=self.provenance,
                     )
                 )
-                result_count += 1
 
-        return replace(text, annotations=output_annotations)
+        return replace(annotated_text, annotations=output_annotations)
+
+    @staticmethod
+    def _bagel_result(candidate: NormalizedAnnotation, norm_result: dict | None):
+        """Build the candidate description Bagel expects, using NodeNorm's type and description."""
+        entity_type = candidate.biolink_type
+        description = ""
+        if norm_result:
+            if norm_result.get("type"):
+                entity_type = norm_result["type"][0]
+            description = norm_result.get("id", {}).get("description", "")
+        return BagelResult(
+            label=candidate.label,
+            identifier=candidate.id,
+            description=description,
+            entity_type=entity_type,
+            # TODO: implement taxa (NameRes has them for genes and proteins).
+            taxa="",
+            taxa_ids="",
+        )
 
     @functools.cache
     def query_bagel(
@@ -347,9 +342,3 @@ class BagelAnnotator(Annotator):
                 unique_bagel_results.append(bagel_result)
                 unique_bagel_results_set[bagel_result] = True
         return unique_bagel_results
-
-    def annotate(self, text, props=None) -> AnnotatedText:
-        """Bagel is a re-ranker: it needs candidates to choose from. Use annotate_with()."""
-        raise NotImplementedError(
-            "BagelAnnotator cannot annotate raw text; use annotate_with() instead."
-        )
