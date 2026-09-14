@@ -59,7 +59,8 @@ a re-ranker. Both are Annotators themselves, so they nest.
 
 ### File formats (`src/renci_ner/formats/`)
 
-`reader_for_file(filename)` picks a `Format` by suffix (`.txt`, `.jsonl`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]`; `writer_for_format(name).write(texts, file)` writes them. JSONL writes `to_dict()` and reads back only text and location.
+`reader_for_file(filename)` picks a `Format` by suffix (`.txt`, `.jsonl`, `.csv`, `.tsv`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]`; `writer_for_format(name).write(texts, file)` writes them. JSONL writes `to_dict()` and reads back only text and location.
+`DelimitedFile` reads one text per non-empty cell (`columns_include`/`columns_exclude`) and writes the row's input cells plus one row per annotation, using `location[-2]`/`location[-1]` as row and column.
 
 ### Key Patterns
 
