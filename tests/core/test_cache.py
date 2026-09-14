@@ -79,3 +79,36 @@ def test_reannotate_does_not_corrupt_cached_results():
     # The cached object itself is untouched.
     cached = linker.annotate("brain").annotations[0]
     assert (cached.start, cached.end, cached.based_on) == (0, 5, [])
+
+
+def test_cache_key_accepts_list_valued_props():
+    """NameRes takes lists (biolink_types, only_prefixes); they must be a valid cache key."""
+    linker = CountingLinker()
+    linker.annotate(
+        "brain", {"biolink_types": ["biolink:AnatomicalEntity"], "limit": 1}
+    )
+    linker.annotate(
+        "brain", {"limit": 1, "biolink_types": ["biolink:AnatomicalEntity"]}
+    )
+    linker.annotate("brain", {"biolink_types": ["biolink:Gene"], "limit": 1})
+    assert len(linker.calls) == 2
+
+
+def test_pipeline_cache_hit_does_not_rerun_steps():
+    from renci_ner.core import Pipeline
+
+    class CountingNER(Annotator):
+        def __init__(self):
+            self.calls = 0
+
+        def _annotate(self, text, props):
+            self.calls += 1
+            return AnnotatedText(
+                text, [Annotation("brain", "I1", "", "biolink:NamedThing", 4, 9, PROV)]
+            )
+
+    ner, linker = CountingNER(), CountingLinker()
+    pipeline = Pipeline(ner, linker)
+    first = pipeline.annotate("The brain.")
+    assert pipeline.annotate("The brain.") is first
+    assert (ner.calls, len(linker.calls)) == (1, 1)
