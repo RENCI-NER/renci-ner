@@ -64,9 +64,10 @@ class NameRes(Annotator):
             "only_prefixes": "(list of prefixes, default: []) The prefixes to filter results to, combined with OR.",
             "exclude_prefixes": "(list of prefixes, default: []) The prefixes to exclude from search results, combined with AND.",
             "only_taxa": "(list of taxa, default: []) The taxa to filter results to as NCBITaxon identifiers, combined with OR.",
+            "skip_cache": "(true/false, default: false) Bypass the in-memory cache for this call.",
         }
 
-    def annotate(self, text, props=None) -> AnnotatedText:
+    def _annotate(self, text: str, props: dict) -> AnnotatedText:
         """
         Annotate a piece of text using NameRes.
 
@@ -74,8 +75,6 @@ class NameRes(Annotator):
         :param props: A dictionary of properties to configure NameRes.
         :return: An AnnotatedText object containing the annotations.
         """
-        if props is None:
-            props = {}
 
         session = self.requests_session
         timeout = props.get("timeout", 120)
