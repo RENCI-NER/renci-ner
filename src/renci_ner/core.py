@@ -323,12 +323,67 @@ class Transformer:
         return annotated_text
 
 
-@dataclass
-class AnnotatorWithProps:
+def _step(step) -> tuple:
+    """A pipeline step is a service or a (service, props) tuple; normalize to the latter."""
+    if isinstance(step, tuple):
+        service, props = step
+        return service, props
+    return step, {}
+
+
+class MultiAnnotator(Annotator):
     """
-    Sometimes we need to share a set of annotators along with the properties used to execute them. This case class
-    can encapsulate that functionality.
+    Run several annotators on the same text and return all of their annotations together.
+    Use this to collect candidates from several linkers (e.g. NameRes and SAPBERT) for a
+    re-ranker like Bagel to choose from.
+
+    Each step is an Annotator or an (Annotator, props) tuple. Annotations keep the provenance
+    of the annotator that produced them.
     """
 
-    annotator: Annotator
-    props: dict = field(default_factory=dict)
+    def __init__(self, *steps):
+        self.steps = [_step(step) for step in steps]
+
+    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+        """Annotate text with every annotator; `props` is ignored in favour of each step's own."""
+        annotations = []
+        for annotator, step_props in self.steps:
+            annotations.extend(annotator.annotate(text, step_props).annotations)
+        return AnnotatedText(text, annotations)
+
+
+class Pipeline(Annotator):
+    """
+    A sequence of steps applied to a text. The first step must be an Annotator and is run on
+    the text itself. Each later step is an Annotator (applied with reannotate()) or a
+    Transformer (applied with transform()). A step is a service or a (service, props) tuple::
+
+        Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm()).annotate(text)
+
+    A Pipeline is itself an Annotator, so pipelines nest and can be used inside a
+    MultiAnnotator.
+    """
+
+    def __init__(self, first, *steps):
+        self.first = _step(first)
+        self.steps = [_step(step) for step in steps]
+        if not isinstance(self.first[0], Annotator):
+            raise TypeError(
+                f"The first step must be an Annotator, not {self.first[0]!r}"
+            )
+        for service, _ in self.steps:
+            if not isinstance(service, Annotator | Transformer):
+                raise TypeError(
+                    f"Steps must be Annotators or Transformers, not {service!r}"
+                )
+
+    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+        """Run the text through every step; `props` is ignored in favour of each step's own."""
+        annotator, first_props = self.first
+        annotated = annotator.annotate(text, first_props)
+        for service, step_props in self.steps:
+            if isinstance(service, Transformer):
+                annotated = annotated.transform(service, step_props)
+            else:
+                annotated = annotated.reannotate(service, step_props)
+        return annotated

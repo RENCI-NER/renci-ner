@@ -36,11 +36,15 @@ uv build
 - **NormalizedAnnotation** — extends Annotation with `biolink_type` (must start with `"biolink:"`) and CURIE id
 - **AnnotatedText** — container for text + annotations; provides `reannotate()` and `transform()` for chaining
 - **Annotator** / **Transformer** — interfaces that services implement
+- **Pipeline** / **MultiAnnotator** — compose services; see Service Pipeline below
 - **AnnotationProvenance** — tracks service name, URL, version for each step
 
 ### Service Pipeline
 
-The fluent chaining API: `annotator.annotate(text).reannotate(linker).transform(normalizer)`
+The fluent chaining API: `annotator.annotate(text).reannotate(linker).transform(normalizer)`,
+or equivalently `Pipeline(annotator, linker, normalizer).annotate(text)`. Steps are services or
+`(service, props)` tuples; `MultiAnnotator(*linkers)` gathers candidates from several linkers for
+a re-ranker. Both are Annotators themselves, so they nest.
 
 **NER** (`services/ner/`):
 - **BioMegatron** — neural NER for biomedical concepts, returns raw Annotations with biolink types
@@ -48,15 +52,17 @@ The fluent chaining API: `annotator.annotate(text).reannotate(linker).transform(
 **Linkers** (`services/linkers/`):
 - **NameRes** — Solr-based entity linker using Babel cliques
 - **BabelSAPBERTAnnotator** — SAPBERT embeddings-based linker
-- **BagelAnnotator** — LLM-based re-ranker that combines results from multiple annotators; requires `BAGEL_USERNAME`/`BAGEL_PASSWORD` env vars
 
-**Transformers** (`services/normalization/`):
-- **NodeNorm** — normalizes identifiers to preferred CURIEs via Translator Node Normalizer
+**Transformers**:
+- **NodeNorm** (`services/normalization/`) — normalizes identifiers to preferred CURIEs via Translator Node Normalizer
+- **BagelAnnotator** (`services/linkers/`) — LLM-based re-ranker; picks among the `NormalizedAnnotation` candidates at each span; requires `BAGEL_USERNAME`/`BAGEL_PASSWORD` env vars
 
 ### Key Patterns
 
 - All services call external HTTP APIs with a default 120s timeout
 - `reannotate()` preserves/adjusts start/end offsets through the chain; 0 results keeps original annotation
+- `AnnotatedText.location` is an opaque passthrough; services build results with `dataclasses.replace()` so it survives
+- `to_dict()` on all core classes gives JSON-serializable dicts tagged with `@type`
 - Services fetch their version from `/openapi.json` at the service URL
 - Bagel uses `@functools.cache` for memoization
 - Tests use `pytest.skip()` when remote services are unavailable

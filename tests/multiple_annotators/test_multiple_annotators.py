@@ -5,6 +5,7 @@ from renci_ner.core import (
     AnnotatedText,
     Annotation,
     NormalizedAnnotation,
+    Pipeline,
 )
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.nameres import NameRes
@@ -34,6 +35,10 @@ def test_multiple_annotators():
     result_sapbert = (
         biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm)
     )
+
+    # The Pipeline form is the same thing.
+    pipeline = Pipeline(biomegatron, (nameres, {"limit": 1}), nodenorm)
+    assert pipeline.annotate(text) == result_nameres
 
     # Check NameRes results, which we expect to be identical to the SAPBERT results.
     assert result_nameres.text == text
