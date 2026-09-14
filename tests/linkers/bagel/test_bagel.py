@@ -204,3 +204,133 @@ def test_check():
             "biolink:AnatomicalEntity",
         ),
     ]
+
+
+def offline_bagel(bagel_results, normalized=None):
+    """A BagelAnnotator that never touches the network and answers every span with bagel_results."""
+    bagel = BagelAnnotator.__new__(BagelAnnotator)
+    bagel.openapi_version = "test"
+
+    class FakeNodeNorm:
+        def normalize(self, identifiers, props=None):
+            return normalized or {}
+
+    bagel.nodenorm = FakeNodeNorm()
+    bagel.query_bagel = lambda entity, context, matches, props_json: bagel_results
+    return bagel
+
+
+def candidate(provenance, curie, label="brain"):
+    ner = Annotation(
+        "brain",
+        "I1",
+        "",
+        "biolink:AnatomicalEntity",
+        4,
+        9,
+        AnnotationProvenance("NER", "http://ner.example/", "1"),
+    )
+    return NormalizedAnnotation(
+        text="brain",
+        id=curie,
+        label=label,
+        type="biolink:AnatomicalEntity",
+        biolink_type="biolink:AnatomicalEntity",
+        start=4,
+        end=9,
+        provenance=provenance,
+        based_on=[ner],
+    )
+
+
+SAPBERT = AnnotationProvenance("BabelSAPBERT", "http://sapbert.example/", "1")
+NAMERES = AnnotationProvenance("NameRes", "http://nameres.example/", "1")
+
+
+def test_no_bagel_results_keeps_the_span():
+    """If Bagel returns nothing (e.g. a 403, or it rejects every candidate), the span must not vanish."""
+    annotated = AnnotatedText("The brain.", [candidate(SAPBERT, "UBERON:0000955")])
+    result = offline_bagel([]).transform(annotated)
+    assert result.annotations == annotated.annotations
+
+
+def test_shared_curie_credits_the_first_linker():
+    """The same CURIE from two linkers is one candidate; the winner is based_on the first one seen."""
+    annotated = AnnotatedText(
+        "The brain.",
+        [candidate(SAPBERT, "UBERON:0000955"), candidate(NAMERES, "UBERON:0000955")],
+    )
+    sent = []
+    bagel = offline_bagel(
+        [
+            BagelResult(
+                identifier="UBERON:0000955",
+                label="brain",
+                entity_type="biolink:AnatomicalEntity",
+                synonym_type="exact",
+            )
+        ]
+    )
+    real_query = bagel.query_bagel
+    bagel.query_bagel = lambda entity, context, matches, props_json: sent.append(
+        matches
+    ) or real_query(entity, context, matches, props_json)
+
+    (winner,) = bagel.transform(annotated, {"limit": 1}).annotations
+    assert len(sent[0]) == 1
+    assert [p.name for p in winner.provenances] == ["NER", "BabelSAPBERT", "Bagel"]
+
+
+def test_unknown_identifier_from_bagel_keeps_the_ner_chain():
+    annotated = AnnotatedText("The brain.", [candidate(SAPBERT, "UBERON:0000955")])
+    bagel = offline_bagel(
+        [
+            BagelResult(
+                identifier="MONDO:9999999",
+                label="made up",
+                entity_type="biolink:Disease",
+                synonym_type="exact",
+            )
+        ]
+    )
+    (winner,) = bagel.transform(annotated, {"limit": 1}).annotations
+    assert winner.id == "MONDO:9999999"
+    assert [p.name for p in winner.provenances] == ["NER", "Bagel"]
+    assert (winner.start, winner.end, winner.text) == (4, 9, "brain")
+
+
+def test_candidate_without_nodenorm_entry_keeps_its_own_type():
+    """What Bagel is sent: NodeNorm's type/description when known, else the candidate's biolink_type."""
+    annotated = AnnotatedText(
+        "The brain.",
+        [
+            candidate(SAPBERT, "UBERON:0000955"),
+            candidate(NAMERES, "UMLS:C0006104", "Brain"),
+        ],
+    )
+    sent = []
+    bagel = offline_bagel(
+        [],
+        normalized={
+            "UBERON:0000955": {
+                "id": {"identifier": "UBERON:0000955", "description": "The brain."},
+                "type": ["biolink:GrossAnatomicalStructure"],
+            }
+        },
+    )
+    bagel.query_bagel = (
+        lambda entity, context, matches, props_json: sent.append(matches) or []
+    )
+    bagel.transform(annotated)
+    by_id = {m.identifier: m for m in sent[0]}
+    assert (
+        by_id["UBERON:0000955"].entity_type,
+        by_id["UBERON:0000955"].description,
+    ) == (
+        "biolink:GrossAnatomicalStructure",
+        "The brain.",
+    )
+    assert (by_id["UMLS:C0006104"].entity_type, by_id["UMLS:C0006104"].description) == (
+        "biolink:AnatomicalEntity",
+        "",
+    )
