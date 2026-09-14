@@ -11,6 +11,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import forbidden
 
 # Configuration.
 RENCI_NAMERES_URL = "https://name-resolution-sri.renci.org"
@@ -79,22 +80,19 @@ class NameRes(Annotator):
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
-        response = session.get(
-            self.lookup_url,
-            params={
-                "string": text,
-                "autocomplete": props.get("autocomplete", "false"),
-                "limit": props.get("limit", 10),
-                "highlighting": props.get("highlighting", "false"),
-                "biolink_type": "|".join(props.get("biolink_types", [])),
-                "only_prefixes": "|".join(props.get("only_prefixes", [])),
-                "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
-                "only_taxa": "|".join(props.get("only_taxa", [])),
-            },
-            timeout=timeout,
-        )
-
-        response.raise_for_status()
+        params = {
+            "string": text,
+            "autocomplete": props.get("autocomplete", "false"),
+            "limit": props.get("limit", 10),
+            "highlighting": props.get("highlighting", "false"),
+            "biolink_type": "|".join(props.get("biolink_types", [])),
+            "only_prefixes": "|".join(props.get("only_prefixes", [])),
+            "exclude_prefixes": "|".join(props.get("exclude_prefixes", [])),
+            "only_taxa": "|".join(props.get("only_taxa", [])),
+        }
+        response = session.get(self.lookup_url, params=params, timeout=timeout)
+        if forbidden(response, text, params):
+            return AnnotatedText(text, [])
         results = response.json()
 
         annotations = [
