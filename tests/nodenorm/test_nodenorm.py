@@ -1,14 +1,16 @@
-import pytest
-from requests import HTTPError
-
 from renci_ner.core import (
     AnnotatedText,
     Annotation,
+    AnnotationProvenance,
     NormalizedAnnotation,
 )
 from renci_ner.services.linkers.nameres import NameRes
-from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
+
+# Only the provenance is needed, so don't depend on BioMegatron being reachable.
+BIOMEGATRON_PROVENANCE = AnnotationProvenance(
+    "BioMegatron", "https://med-nemo.apps.renci.org", "test"
+)
 
 
 def test_check():
@@ -38,12 +40,6 @@ def test_with_transform():
     linker in here we can use it there; until then, I'll just make up an example to test this.
     """
 
-    try:
-        biomegatron = BioMegatron()
-    except HTTPError as err:
-        pytest.skip(f"BioMegatron is not available: {err}")
-        return
-
     nameres = NameRes()
 
     annotated_text = AnnotatedText(
@@ -66,7 +62,7 @@ def test_with_transform():
                         type="biolink:Protein",
                         start=10,
                         end=15,
-                        provenance=biomegatron.provenance,
+                        provenance=BIOMEGATRON_PROVENANCE,
                         based_on=[],
                         props={},
                     ),
@@ -127,7 +123,7 @@ def test_with_transform():
                         type="biolink:Protein",
                         start=10,
                         end=15,
-                        provenance=biomegatron.provenance,
+                        provenance=BIOMEGATRON_PROVENANCE,
                         based_on=[],
                         props={},
                     ),
@@ -148,7 +144,7 @@ def test_with_transform():
                                 type="biolink:Protein",
                                 start=10,
                                 end=15,
-                                provenance=biomegatron.provenance,
+                                provenance=BIOMEGATRON_PROVENANCE,
                                 based_on=[],
                                 props={},
                             ),
