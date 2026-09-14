@@ -1,8 +1,9 @@
-"""Offline tests for 403 handling and the retrying session, using a fake requests session."""
+"""Offline tests for 403 handling and the retrying session, using the fake session from conftest."""
 
 import logging
 
 import pytest
+from conftest import FakeSession
 from requests import HTTPError
 
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
@@ -11,40 +12,6 @@ from renci_ner.services.linkers.nameres import NameRes
 from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
 from renci_ner.utils import make_session
-
-
-class FakeResponse:
-    def __init__(self, status_code, payload, url):
-        self.status_code = status_code
-        self.payload = payload
-        self.url = url
-        self.text = str(payload)
-
-    def json(self):
-        return self.payload
-
-    def raise_for_status(self):
-        if self.status_code >= 400:
-            raise HTTPError(f"{self.status_code} for {self.url}")
-
-
-class FakeSession:
-    """Answers openapi.json normally and everything else with a fixed status."""
-
-    def __init__(self, status_code, payload=None):
-        self.status_code = status_code
-        self.payload = payload
-
-    def _respond(self, url):
-        if url.endswith("/openapi.json"):
-            return FakeResponse(200, {"info": {"version": "0.0"}}, url)
-        return FakeResponse(self.status_code, self.payload, url)
-
-    def get(self, url, **kwargs):
-        return self._respond(url)
-
-    def post(self, url, **kwargs):
-        return self._respond(url)
 
 
 @pytest.mark.parametrize("cls", [BioMegatron, NameRes, BabelSAPBERTAnnotator])
