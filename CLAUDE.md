@@ -57,6 +57,10 @@ a re-ranker. Both are Annotators themselves, so they nest.
 - **NodeNorm** (`services/normalization/`) — normalizes identifiers to preferred CURIEs via Translator Node Normalizer
 - **BagelAnnotator** (`services/linkers/`) — LLM-based re-ranker; picks among the `NormalizedAnnotation` candidates at each span; requires `BAGEL_USERNAME`/`BAGEL_PASSWORD` env vars
 
+### File formats (`src/renci_ner/formats/`)
+
+`reader_for_file(filename)` picks a `Format` by suffix (`.txt`, `.jsonl`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]`; `writer_for_format(name).write(texts, file)` writes them. JSONL writes `to_dict()` and reads back only text and location.
+
 ### Key Patterns
 
 - All services call external HTTP APIs with a default 120s timeout
