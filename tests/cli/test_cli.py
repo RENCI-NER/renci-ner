@@ -1,4 +1,5 @@
 import csv
+import gzip
 import io
 import json
 from pathlib import Path
@@ -163,3 +164,14 @@ def test_empty_input_file(tmp_path, stub_pipeline):
     assert result.exit_code == 0, result.output
     # Header only; input columns are learned from the texts, so none appear here.
     assert result.output.splitlines() == [",".join(ANNOTATION_COLUMNS)]
+
+
+def test_gzipped_output(tmp_path, stub_pipeline):
+    path = tmp_path / "in.txt"
+    path.write_text("brain\n")
+    out = tmp_path / "out.jsonl.gz"
+    result = CliRunner().invoke(cli.main, ["-f", "jsonl", "-o", str(out), str(path)])
+    assert result.exit_code == 0, result.output
+    with gzip.open(out, "rt", encoding="utf-8") as f:
+        (line,) = f.read().splitlines()
+    assert json.loads(line)["annotations"][0]["id"] == "UBERON:0000955"

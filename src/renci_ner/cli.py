@@ -14,7 +14,13 @@ import click
 from tqdm import tqdm
 
 from renci_ner.core import AnnotatedText, Annotator, MultiAnnotator, Pipeline
-from renci_ner.formats import FORMATS, DelimitedFile, reader_for_file, writer_for_format
+from renci_ner.formats import (
+    FORMATS,
+    DelimitedFile,
+    open_text,
+    reader_for_file,
+    writer_for_format,
+)
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.bagel import BagelAnnotator
 from renci_ner.services.linkers.nameres import NameRes
@@ -126,7 +132,7 @@ def annotate_texts(
     "--output",
     default="-",
     show_default=True,
-    help="Output file, or - for standard output.",
+    help="Output file (gzipped if it ends in .gz), or - for standard output.",
 )
 @click.option(
     "-f",
@@ -171,7 +177,7 @@ def main(
     if output == "-":
         writer.write(annotated, sys.stdout)
     else:
-        with open(output, "w", encoding="utf-8", newline="") as f:
+        with open_text(output, "wt", newline="") as f:
             writer.write(annotated, f)
         logger.info(f"Wrote {len(annotated)} annotated texts to {output}.")
 
