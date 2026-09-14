@@ -60,9 +60,10 @@ class BabelSAPBERTAnnotator(Annotator):
             "timeout": "The timeout in seconds for requests to SAPBERT. Default: 120 seconds.",
             "limit": "The maximum number of results to return.",
             "score": "The minimum score for this result returned by SAPBERT (higher is better).",
+            "skip_cache": "(true/false, default: false) Bypass the in-memory cache for this call.",
         }
 
-    def annotate(self, text, props=None) -> AnnotatedText:
+    def _annotate(self, text: str, props: dict) -> AnnotatedText:
         """
         Annotate text using BabelSAPBERT.
 
@@ -70,8 +71,6 @@ class BabelSAPBERTAnnotator(Annotator):
         :param props: The properties to pass to SAPBERT.
         :return: An AnnotatedText object containing the annotations.
         """
-        if props is None:
-            props = {}
 
         session = self.requests_session
         timeout = props.get("timeout", 120)

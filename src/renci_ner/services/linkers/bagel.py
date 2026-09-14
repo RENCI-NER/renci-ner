@@ -274,7 +274,7 @@ class BagelAnnotator(Transformer):
             taxa_ids="",
         )
 
-    @functools.cache
+    @functools.lru_cache(maxsize=10_000)
     def query_bagel(
         self,
         entity_text: str,

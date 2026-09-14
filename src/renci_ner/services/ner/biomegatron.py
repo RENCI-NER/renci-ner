@@ -55,10 +55,11 @@ class BioMegatron(Annotator):
     def supported_properties(self):
         """Some configurable parameters for BioMegatron (none at present)."""
         return {
-            "timeout": "The timeout in seconds for requests to BioMegatron. Default: 120 seconds."
+            "timeout": "The timeout in seconds for requests to BioMegatron. Default: 120 seconds.",
+            "skip_cache": "(true/false, default: false) Bypass the in-memory cache for this call.",
         }
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def _annotate(self, text: str, props: dict) -> AnnotatedText:
         """
         Annotate text using BioMegatron.
 
@@ -66,9 +67,6 @@ class BioMegatron(Annotator):
         :param props: Properties to pass to BioMegatron.
         :return: An AnnotatedText object containing the annotations.
         """
-
-        if props is None:
-            props = {}
 
         session = self.requests_session
         timeout = props.get("timeout", 120)

@@ -56,6 +56,11 @@ class NodeNorm(Transformer):
             "version", "NA"
         )
 
+        # ponytail: (identifier, flags) -> result, emptied when full. Swap for an LRU
+        # if that ever matters.
+        self._cache = {}
+        self.cache_size = 100_000
+
     def supported_properties(self):
         """Some configurable parameters."""
         return {
@@ -63,6 +68,7 @@ class NodeNorm(Transformer):
             "geneprotein_conflation": "(true/false, default: true) Whether to conflate gene and protein identifiers.",
             "drugchemical_conflation": "(true/false, default: false) Whether to conflate drug and chemical identifiers.",
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
+            "skip_cache": "(true/false, default: false) Bypass the in-memory cache for this call.",
         }
 
     def normalize(self, identifiers: list[str], props=None):
@@ -75,24 +81,45 @@ class NodeNorm(Transformer):
         """
         if props is None:
             props = {}
-        if not identifiers:
-            # NodeNorm rejects an empty list, and there is nothing to do anyway.
-            return {}
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
+        flags = (
+            props.get("geneprotein_conflation", True),
+            props.get("drugchemical_conflation", False),
+            props.get("description", False),
+        )
+        skip_cache = props.get("skip_cache", False)
+
+        results = {}
+        if not skip_cache:
+            results = {
+                identifier: self._cache[(identifier, flags)]
+                for identifier in identifiers
+                if (identifier, flags) in self._cache
+            }
+        missing = sorted(set(identifiers) - results.keys())
+        if not missing:
+            # Also covers the empty list, which NodeNorm rejects.
+            return results
 
         data = {
-            "curies": identifiers,
-            "conflate": props.get("geneprotein_conflation", True),
-            "drug_chemical_conflate": props.get("drugchemical_conflation", False),
-            "description": props.get("description", False),
+            "curies": missing,
+            "conflate": flags[0],
+            "drug_chemical_conflate": flags[1],
+            "description": flags[2],
         }
         response = session.post(
             self.get_normalized_nodes_url, json=data, timeout=timeout
         )
-        if forbidden(response, identifiers, data):
-            return {}
-        return response.json()
+        if forbidden(response, missing, data):
+            return results
+        fetched = response.json()
+        if not skip_cache:
+            if len(self._cache) + len(fetched) > self.cache_size:
+                self._cache.clear()
+            for identifier, result in fetched.items():
+                self._cache[(identifier, flags)] = result
+        return results | fetched
 
     def transform(self, annotated_text: AnnotatedText, props=None) -> AnnotatedText:
         """

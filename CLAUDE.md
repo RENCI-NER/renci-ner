@@ -65,7 +65,7 @@ a re-ranker. Both are Annotators themselves, so they nest.
 - `AnnotatedText.location` is an opaque passthrough; services build results with `dataclasses.replace()` so it survives
 - `to_dict()` on all core classes gives JSON-serializable dicts tagged with `@type`
 - Services fetch their version from `/openapi.json` at the service URL
-- Bagel uses `@functools.cache` for memoization
+- Caching: `Annotator.annotate()` caches per (text, props) in a per-instance LRU and services implement `_annotate(text, props)`; NodeNorm caches per (identifier, conflation flags); `skip_cache: True` bypasses. Cached results are shared, so never modify an AnnotatedText a service returned
 - Tests use `pytest.skip()` when remote services are unavailable
 - Python 3.11+ required (uses `typing.Self`)
 

@@ -1,3 +1,5 @@
+import functools
+import json
 from dataclasses import dataclass, field, replace
 from typing import Self
 
@@ -242,23 +244,30 @@ class AnnotatedText:
                     text_size = len(reannotation.text)
                     assert text_size == (reannotation.end - reannotation.start)
 
-                    reannotation.start = base_start + new_start
-                    reannotation.end = base_start + new_start + text_size
-
-                    # Each reannotation gets its own list. Anything the annotator
-                    # already recorded in based_on (e.g. a nested pipeline) goes
-                    # after our chain, since it happened later.
-                    reannotation.based_on = [*new_based_on, *reannotation.based_on]
-
-                    new_annotations.append(reannotation)
+                    # Don't modify the annotator's output (it may be cached and reused):
+                    # build a copy with the offsets and chain fixed. Anything the
+                    # annotator already recorded in based_on (e.g. a nested pipeline)
+                    # goes after our chain, since it happened later.
+                    new_annotations.append(
+                        replace(
+                            reannotation,
+                            start=base_start + new_start,
+                            end=base_start + new_start + text_size,
+                            based_on=[*new_based_on, *reannotation.based_on],
+                        )
+                    )
 
         return replace(self, annotations=new_annotations)
 
 
 class Annotator:
     """
-    An interface for a service that can annotate text.
+    An interface for a service that can annotate text. Services implement `_annotate()`;
+    `annotate()` wraps it with a per-instance cache keyed on the text and props.
     """
+
+    # ponytail: one LRU per instance; set to 0 on a subclass or instance to disable.
+    cache_size = 10_000
 
     @property
     def provenance(self) -> AnnotationProvenance:
@@ -276,12 +285,26 @@ class Annotator:
     def annotate(self, text: str, props: dict = None) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
-        `props`.
+        `props`. Results are cached per (text, props); pass `skip_cache: True` to bypass the cache.
+
+        The returned AnnotatedText may be shared with later callers, so don't modify it.
 
         :param text: The text to annotate.
         :param props: Properties supported by this annotator to use during the annotation.
         :return AnnotatedText: The annotated text.
         """
+        props = dict(props or {})
+        skip_cache = props.pop("skip_cache", False)
+        if skip_cache or not self.cache_size:
+            return self._annotate(text, props)
+        if "_cached_annotate" not in self.__dict__:
+            self._cached_annotate = functools.lru_cache(maxsize=self.cache_size)(
+                lambda text, props_json: self._annotate(text, json.loads(props_json))
+            )
+        return self._cached_annotate(text, json.dumps(props, sort_keys=True))
+
+    def _annotate(self, text: str, props: dict) -> AnnotatedText:
+        """Annotate a text; implemented by each service. `props` is never None."""
         return AnnotatedText(text, [])
 
     def supported_properties(self) -> dict[str, str]:
@@ -344,7 +367,7 @@ class MultiAnnotator(Annotator):
     def __init__(self, *steps):
         self.steps = [_step(step) for step in steps]
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def _annotate(self, text: str, props: dict) -> AnnotatedText:
         """Annotate text with every annotator; `props` is ignored in favour of each step's own."""
         annotations = []
         for annotator, step_props in self.steps:
@@ -377,7 +400,7 @@ class Pipeline(Annotator):
                     f"Steps must be Annotators or Transformers, not {service!r}"
                 )
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def _annotate(self, text: str, props: dict) -> AnnotatedText:
         """Run the text through every step; `props` is ignored in favour of each step's own."""
         annotator, first_props = self.first
         annotated = annotator.annotate(text, first_props)
