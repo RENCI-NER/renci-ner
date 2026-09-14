@@ -7,6 +7,7 @@
 import requests
 
 from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance, Annotator
+from renci_ner.utils import forbidden
 
 # Configuration.
 RENCI_BIOMEGATRON_URL = "https://med-nemo.apps.renci.org"
@@ -72,16 +73,10 @@ class BioMegatron(Annotator):
         session = self.requests_session
         timeout = props.get("timeout", 120)
 
-        response = session.post(
-            self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "token_classification",
-            },
-            timeout=timeout,
-        )
-
-        response.raise_for_status()
+        data = {"text": text, "model_name": "token_classification"}
+        response = session.post(self.annotate_url, json=data, timeout=timeout)
+        if forbidden(response, text, data):
+            return AnnotatedText(text, [])
 
         result = response.json()
 

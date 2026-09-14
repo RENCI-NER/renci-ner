@@ -117,7 +117,7 @@ def test_check():
         babel_sapbert = BabelSAPBERTAnnotator()
         nameres = NameRes()
         bagel = BagelAnnotator()
-    except HTTPError as err:
+    except (HTTPError, ValueError) as err:
         pytest.skip(f"A service is not available: {err}")
         return
 

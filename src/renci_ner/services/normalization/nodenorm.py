@@ -3,7 +3,6 @@
 # Source code: https://github.com/TranslatorSRI/NodeNormalization
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
-import logging
 from dataclasses import replace
 
 import requests
@@ -14,6 +13,7 @@ from renci_ner.core import (
     NormalizedAnnotation,
     Transformer,
 )
+from renci_ner.utils import forbidden
 
 # Configuration.
 RENCI_NODENORM_URL = "https://nodenormalization-sri.renci.org"
@@ -81,21 +81,16 @@ class NodeNorm(Transformer):
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
 
+        data = {
+            "curies": identifiers,
+            "conflate": props.get("geneprotein_conflation", True),
+            "drug_chemical_conflate": props.get("drugchemical_conflation", False),
+            "description": props.get("description", False),
+        }
         response = session.post(
-            self.get_normalized_nodes_url,
-            json={
-                "curies": identifiers,
-                "conflate": props.get("geneprotein_conflation", True),
-                "drug_chemical_conflate": props.get("drugchemical_conflation", False),
-                "description": props.get("description", False),
-            },
-            timeout=timeout,
+            self.get_normalized_nodes_url, json=data, timeout=timeout
         )
-        if response.status_code != 200:
-            # raise Exception(f"NodeNorm returned status code {response.status_code}")
-            logging.error(
-                f"NodeNorm returned status code {response.status_code} {response.text} for CURIEs {identifiers}, skipping."
-            )
+        if forbidden(response, identifiers, data):
             return {}
         return response.json()
 

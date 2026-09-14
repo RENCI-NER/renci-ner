@@ -11,6 +11,7 @@ from renci_ner.core import (
     Annotator,
     NormalizedAnnotation,
 )
+from renci_ner.utils import forbidden
 
 # Configuration.
 RENCI_SAPBERT_URL = "https://sap-qdrant.apps.renci.org"
@@ -78,17 +79,10 @@ class BabelSAPBERTAnnotator(Annotator):
         min_score = props.get("score", 0)
         limit = props.get("limit", DEFAULT_LIMIT)
 
-        response = session.post(
-            self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
-            timeout=timeout,
-        )
-
-        response.raise_for_status()
+        data = {"text": text, "model_name": "sapbert", "count": limit}
+        response = session.post(self.annotate_url, json=data, timeout=timeout)
+        if forbidden(response, text, data):
+            return AnnotatedText(text, [])
         results = response.json()
 
         # Find all the results that meet our criteria.
