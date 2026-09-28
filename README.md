@@ -43,6 +43,7 @@ classDiagram
   class AnnotatedText {
     +text: str
     +annotations: List[Annotation]
+    +location: List[str]
   }
 
   class AnnotationProvenance {
@@ -79,6 +80,13 @@ A piece of text along with its annotations.
 
 * `text` (str): The text.
 * `annotations` (list of `Annotation`): Its annotations.
+* `location` (list of str): Where the text came from (e.g. a filename, row and
+  column). The library carries it through unchanged; readers and writers decide
+  what goes in it.
+
+All the core classes have a `to_dict()` method that returns a JSON-serializable
+dict tagged with an `@type` (e.g. `renci_ner:Annotation`), and a compact
+`str()` for logging.
 
 Additionally, `AnnotatedText` has methods to help chain
 `Annotators` and `Transformers` together.
@@ -120,7 +128,10 @@ properties after it has been changed into a `NormalizedAnnotation`.
 * `label` (str): The label for the annotation.
 * `type` (str): The type of the annotation.
 * `start` (int): The start index of the annotation.
-* `end` (int): The end index of the annotation.
+* `end` (int): The end index of the annotation. `start` and `end` are offsets into
+  the `AnnotatedText`'s full text, for this annotation and for every annotation
+  in its `based_on` chain; `reannotate()` moves the offsets an annotator returns
+  (relative to the annotation text it was given) back to the full text.
 * `provenance` (`AnnotationProvenance`): The provenance for this annotation.
   The `provenances` property provides a list of all the provenances
   that have been used to create this annotation by reading them from the `based_on` list.

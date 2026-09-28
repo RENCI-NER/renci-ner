@@ -28,9 +28,10 @@ class NameRes(Annotator):
             name="NameRes", url=RENCI_NAMERES_URL, version=self.openapi_version
         )
 
-    def __init__(
-        self, url=RENCI_NAMERES_URL, requests_session=requests.Session(), timeout=120
-    ):
+    def __str__(self):
+        return f"NameRes(url={self.url}, version={self.openapi_version})"
+
+    def __init__(self, url=RENCI_NAMERES_URL, requests_session=None, timeout=120):
         """
         Set up a NameRes service.
 
@@ -40,9 +41,11 @@ class NameRes(Annotator):
         """
         self.url = url
         self.lookup_url = url + "/lookup"
-        self.requests_session = requests_session
+        self.requests_session = requests_session or requests.Session()
 
-        response = self.requests_session.get(self.url + "/openapi.json", timeout=120)
+        response = self.requests_session.get(
+            self.url + "/openapi.json", timeout=timeout
+        )
         response.raise_for_status()
         openapi_data = response.json()
         self.openapi_version = openapi_data.get("info", {"version": "NA"}).get(

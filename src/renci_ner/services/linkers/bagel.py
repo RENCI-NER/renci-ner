@@ -16,7 +16,7 @@ import functools
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import requests
 from requests import HTTPError
@@ -28,7 +28,6 @@ from renci_ner.core import (
     AnnotationProvenance,
     Annotator,
     AnnotatorWithProps,
-    NormalizedAnnotation,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
 
@@ -43,6 +42,8 @@ DEFAULT_TEMPERATURE = 1.0
 # Load BAGEL_USERNAME and BAGEL_PASSWORD from the environment.
 BAGEL_USERNAME = os.environ.get("BAGEL_USERNAME")
 BAGEL_PASSWORD = os.environ.get("BAGEL_PASSWORD")
+
+logger = logging.getLogger(__name__)
 
 
 # A case class for uniquifying Bagel results.
@@ -85,14 +86,6 @@ class BagelResult:
 
     @staticmethod
     def get_bagel_sort_key(br) -> tuple:
-        if not isinstance(br, BagelResult):
-            raise TypeError(
-                f"get_synonym_type_order_key({br}) called, but we can only work with BagelResult objects, got {type(br)} instead."
-            )
-
-        if not br:
-            return 999, 999
-
         # We need to sort in two ways:
         # - Bagel results are marked as exact, broad, narrow or related. We want to sort exact matches first, followed by the others.
         # - If we have multiple matches in a category, we want to figure out some way of choosing one.
@@ -107,7 +100,9 @@ class BagelResult:
         elif br.synonym_type == "related":
             synonym_type_order = 3
         else:
-            raise RuntimeError(f"Unknown synonym type found in {br}: {br.synonym_type}")
+            # Anything else the LLM comes up with sorts last rather than crashing.
+            logger.warning(f"Unknown synonym type in {br}: {br.synonym_type}")
+            synonym_type_order = 4
 
         curie_prefix = br.identifier.split(":", 2)[0].upper()
         if curie_prefix == "UMLS":
@@ -130,8 +125,11 @@ class BagelAnnotator(Annotator):
             name="Bagel", url=RENCI_BAGEL_URL, version=self.openapi_version
         )
 
+    def __str__(self):
+        return f"BagelAnnotator(url={self.url}, version={self.openapi_version})"
+
     def __init__(
-        self, url=RENCI_BAGEL_URL, requests_session=requests.Session(), timeout=120
+        self, url=RENCI_BAGEL_URL, requests_session=None, timeout=120, nodenorm=None
     ):
         """
         Set up a Bagel service.
@@ -139,10 +137,12 @@ class BagelAnnotator(Annotator):
         :param url: The URL of the Bagel service.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
+        :param nodenorm: The NodeNorm instance to use to look up descriptions and types for
+            candidates. Defaults to a NodeNorm sharing this service's requests session.
         """
         self.url = url
         self.rerank_url = url + "/group_synonyms_openai"
-        self.requests_session = requests_session
+        self.requests_session = requests_session or requests.Session()
 
         response = self.requests_session.get(
             self.url + "/openapi.json",
@@ -155,14 +155,15 @@ class BagelAnnotator(Annotator):
             "version", "NA"
         )
 
-        # TODO: properly configure NodeNorm.
-        self.nodenorm = NodeNorm()
+        self.nodenorm = nodenorm or NodeNorm(
+            requests_session=self.requests_session, timeout=timeout
+        )
 
     def supported_properties(self):
         """Configurable properties for Bagel."""
         return {
-            "timeout": f"The timeout in seconds for requests to Bagel. Default: ${BAGEL_DEFAULT_TIMEOUT} seconds.",
-            "bagel_prompt_name": "The name of the Bagel prompt to use. Default: '${BAGEL_PROMPT_NAME}'.",
+            "timeout": f"The timeout in seconds for requests to Bagel. Default: {BAGEL_DEFAULT_TIMEOUT} seconds.",
+            "bagel_prompt_name": f"The name of the Bagel prompt to use. Default: '{BAGEL_PROMPT_NAME}'.",
             "temperature": f"The temperature to use for the LLM (default: {DEFAULT_TEMPERATURE}).",
             "top_p": f"The top_p to use for the LLM (default: {DEFAULT_TOP_P}).",
             "limit": "The maximum number of results to return.",
@@ -266,7 +267,7 @@ class BagelAnnotator(Annotator):
                 )
                 result_count += 1
 
-        return AnnotatedText(text.text, output_annotations)
+        return replace(text, annotations=output_annotations)
 
     @functools.cache
     def query_bagel(
@@ -310,7 +311,7 @@ class BagelAnnotator(Annotator):
                 },
             },
         }
-        print(f"Bagel request: {json.dumps(request_json, indent=2)}")
+        logger.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
         response = session.post(
             self.rerank_url,
             json=request_json,
@@ -325,7 +326,7 @@ class BagelAnnotator(Annotator):
             )
 
         result = response.json()
-        logging.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
+        logger.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")
 
         # The result here is a list of results, but they're not guaranteed to be sorted: only one of them should have
         # `"synonym_type": "exact"`, which should be sorted first. There are other narrow/broad matches that should
@@ -334,7 +335,7 @@ class BagelAnnotator(Annotator):
             map(lambda x: BagelResult.from_dict(x), result),
             key=BagelResult.get_bagel_sort_key,
         )
-        print(
+        logger.debug(
             f"Bagel results: {json.dumps(list(map(lambda r: r.to_dict(), bagel_results)), indent=2, sort_keys=True)}"
         )
 
@@ -348,60 +349,7 @@ class BagelAnnotator(Annotator):
         return unique_bagel_results
 
     def annotate(self, text, props=None) -> AnnotatedText:
-        """
-        Annotate text using BabelSAPBERT.
-
-        TODO: needs to be completed rewritten.
-
-        :param text: The text to annotate.
-        :param props: The properties to pass to SAPBERT.
-        :return: An AnnotatedText object containing the annotations.
-        """
-        if props is None:
-            props = {}
-
-        session = self.requests_session
-        timeout = props.get("timeout", 120)
-
-        min_score = props.get("score", 0)
-        limit = props.get("limit", DEFAULT_LIMIT)
-
-        response = session.post(
-            self.annotate_url,
-            json={
-                "text": text,
-                "model_name": "sapbert",
-                "count": limit,
-            },
-            timeout=timeout,
+        """Bagel is a re-ranker: it needs candidates to choose from. Use annotate_with()."""
+        raise NotImplementedError(
+            "BagelAnnotator cannot annotate raw text; use annotate_with() instead."
         )
-
-        response.raise_for_status()
-        results = response.json()
-
-        # Find all the results that meet our criteria.
-        annotations = []
-        for result in results:
-            if result.get("score", 0) < min_score:
-                continue
-
-            annotations.append(
-                # Since SAPBERT is normalized to Babel, we can treat it as a NormalizedAnnotation.
-                NormalizedAnnotation(
-                    text=text,
-                    id=result.get("curie", ""),
-                    label=result.get("name", ""),
-                    biolink_type=result.get("category", ""),
-                    type=result.get("category", ""),
-                    props={
-                        "score": result.get("score", 0),
-                    },
-                    provenance=self.provenance,
-                    # Since we're using the whole text, let's just use that
-                    # as the start/end.
-                    start=0,
-                    end=len(text),
-                )
-            )
-
-        return AnnotatedText(text, annotations)
