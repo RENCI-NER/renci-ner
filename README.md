@@ -87,6 +87,33 @@ Cached results are shared between callers, so don't modify an `AnnotatedText` th
 service returned. A new service should implement `_annotate()`, not `annotate()`, so
 that it is cached.
 
+## File formats
+
+[`renci_ner.formats`](src/renci_ner/formats/__init__.py) reads texts from files and
+writes annotated texts back out:
+
+```python
+from dataclasses import replace
+from renci_ner.formats import reader_for_file, writer_for_format
+
+with open("out.jsonl", "w") as out:
+    texts = (
+        # annotate() takes a str, so carry each text's location over by hand.
+        replace(pipeline.annotate(t.text), location=t.location)
+        for t in reader_for_file("in.txt.gz").read()
+    )
+    writer_for_format("jsonl").write(texts, out)
+```
+
+* `.txt`: one text per line. Writing emits only the text.
+* `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
+  `location` from each line, so annotated output can be read back as input; its
+  annotations are not read back.
+
+A reader picks the format by suffix, and a trailing `.gz` is read through gzip. Each
+`AnnotatedText` it yields has a `location` of `[filename, "row=N", column]`, where
+`column` is `"text"` for formats without columns.
+
 ## Development
 
 This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
