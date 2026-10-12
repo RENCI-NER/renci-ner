@@ -105,6 +105,46 @@ def test_reannotate_offsets_provenance_and_based_on():
     assert len(second.based_on) == 1
 
 
+class StubPipeline(Annotator):
+    """Finds the last word of the text and links it with StubLinker: a nested pipeline."""
+
+    def annotate(self, text, props=None):
+        ner = AnnotationProvenance("StubInnerNER", "http://inner.example/", "1")
+        start = text.rfind(" ") + 1
+        word = text[start:]
+        inner = AnnotatedText(
+            text, [Annotation(word, "W1", "", "", start, len(text), ner)]
+        )
+        return inner.reannotate(StubLinker(n=2))
+
+
+def test_reannotate_nested_pipeline_offsets():
+    source = ner_text()
+    result = source.reannotate(StubPipeline())
+
+    # "brain" has no space, so the whole thing is the last word; "nervous system" -> "system".
+    assert [ann.text for ann in result.annotations] == [
+        "brain",
+        "brain",
+        "system",
+        "system",
+    ]
+    for ann in result.annotations:
+        assert [p.name for p in ann.provenances] == [
+            "StubNER",
+            "StubInnerNER",
+            "StubLinker",
+        ]
+        # Every annotation in the chain, including the ones the nested pipeline
+        # recorded, must point at its own text in the full text.
+        for step in [*ann.based_on, ann]:
+            assert source.text[step.start : step.end] == step.text
+
+    # The nested pipeline shares its inner annotation between both results; it must
+    # only have been shifted once.
+    assert result.annotations[2].based_on[1].start == 33
+
+
 def test_reannotate_no_results_keeps_annotation():
     source = ner_text()
     result = source.reannotate(StubLinker(n=0))
