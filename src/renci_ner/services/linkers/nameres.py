@@ -5,6 +5,7 @@
 #
 import requests
 
+from renci_ner.config import get_setting
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
@@ -25,20 +26,22 @@ class NameRes(Annotator):
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="NameRes", url=RENCI_NAMERES_URL, version=self.openapi_version
+            name="NameRes", url=self.url, version=self.openapi_version
         )
 
     def __str__(self):
         return f"NameRes(url={self.url}, version={self.openapi_version})"
 
-    def __init__(self, url=RENCI_NAMERES_URL, requests_session=None, timeout=120):
+    def __init__(self, url=None, requests_session=None, timeout=120):
         """
         Set up a NameRes service.
 
-        :param url: The URL of the NameRes service.
+        :param url: The URL of the NameRes service. Defaults to the NAMERES_URL setting (in
+            the environment or a .env file; see env.default), or else RENCI_NAMERES_URL.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
+        url = url or get_setting("NAMERES_URL", RENCI_NAMERES_URL)
         self.url = url
         self.lookup_url = url + "/lookup"
         self.requests_session = requests_session or requests.Session()

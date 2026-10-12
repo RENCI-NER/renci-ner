@@ -6,6 +6,7 @@
 
 import requests
 
+from renci_ner.config import get_setting
 from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance, Annotator
 
 # Configuration.
@@ -21,7 +22,7 @@ class BioMegatron(Annotator):
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="BioMegatron", url=RENCI_BIOMEGATRON_URL, version=self.openapi_version
+            name="BioMegatron", url=self.url, version=self.openapi_version
         )
 
     def __str__(self):
@@ -29,17 +30,19 @@ class BioMegatron(Annotator):
 
     def __init__(
         self,
-        url=RENCI_BIOMEGATRON_URL,
+        url=None,
         requests_session=None,
         timeout=120,
     ):
         """
         Set up a BioMegatron service.
 
-        :param url: The URL of the BioMegatron service.
+        :param url: The URL of the BioMegatron service. Defaults to the BIOMEGATRON_URL setting (in
+            the environment or a .env file; see env.default), or else RENCI_BIOMEGATRON_URL.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
+        url = url or get_setting("BIOMEGATRON_URL", RENCI_BIOMEGATRON_URL)
         self.url = url
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session or requests.Session()

@@ -5,6 +5,7 @@
 #
 import requests
 
+from renci_ner.config import get_setting
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
@@ -26,20 +27,22 @@ class BabelSAPBERTAnnotator(Annotator):
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="BabelSAPBERT", url=RENCI_SAPBERT_URL, version=self.openapi_version
+            name="BabelSAPBERT", url=self.url, version=self.openapi_version
         )
 
     def __str__(self):
         return f"BabelSAPBERTAnnotator(url={self.url}, version={self.openapi_version})"
 
-    def __init__(self, url=RENCI_SAPBERT_URL, requests_session=None, timeout=120):
+    def __init__(self, url=None, requests_session=None, timeout=120):
         """
         Set up a SAPBERT service.
 
-        :param url: The URL of a SAPBERT service.
+        :param url: The URL of the SAPBERT service. Defaults to the SAPBERT_URL setting (in
+            the environment or a .env file; see env.default), or else RENCI_SAPBERT_URL.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
+        url = url or get_setting("SAPBERT_URL", RENCI_SAPBERT_URL)
         self.url = url
         self.annotate_url = url + "/annotate/"
         self.requests_session = requests_session or requests.Session()

@@ -5,6 +5,7 @@ from renci_ner.core import (
     AnnotatedText,
     Annotation,
     NormalizedAnnotation,
+    Pipeline,
 )
 from renci_ner.services.linkers.babelsapbert import BabelSAPBERTAnnotator
 from renci_ner.services.linkers.nameres import NameRes
@@ -35,6 +36,10 @@ def test_multiple_annotators():
         biomegatron.annotate(text).reannotate(sapbert, {"limit": 1}).transform(nodenorm)
     )
 
+    # The Pipeline form is the same thing.
+    pipeline = Pipeline(biomegatron, (nameres, {"limit": 1}), nodenorm)
+    assert pipeline.annotate(text) == result_nameres
+
     # Check NameRes results, which we expect to be identical to the SAPBERT results.
     assert result_nameres.text == text
     assert result_nameres.text == result_sapbert.text
@@ -58,6 +63,11 @@ def test_multiple_annotators():
     del result_nameres.annotations[1].props["clique_identifier_count"]
     del result_nameres.annotations[1].props["score"]
     del result_nameres.annotations[1].props["synonyms"]
+
+    # The type list grows with the Biolink model (e.g. NameRes added biolink:OntologyClass),
+    # so only check that it leads with the annotation's own type.
+    for annotation in result_nameres.annotations:
+        assert annotation.props.pop("types")[0] == annotation.biolink_type
 
     assert result_nameres == AnnotatedText(
         "The brain is part of the nervous system.",
@@ -87,18 +97,6 @@ def test_multiple_annotators():
                 props={
                     "highlighting": {},
                     "taxa": [],
-                    "types": [
-                        "biolink:GrossAnatomicalStructure",
-                        "biolink:AnatomicalEntity",
-                        "biolink:PhysicalEssence",
-                        "biolink:OrganismalEntity",
-                        "biolink:SubjectOfInvestigation",
-                        "biolink:BiologicalEntity",
-                        "biolink:ThingWithTaxon",
-                        "biolink:NamedThing",
-                        "biolink:Entity",
-                        "biolink:PhysicalEssenceOrOccurrent",
-                    ],
                 },
             ),
             NormalizedAnnotation(
@@ -126,17 +124,6 @@ def test_multiple_annotators():
                 props={
                     "highlighting": {},
                     "taxa": [],
-                    "types": [
-                        "biolink:AnatomicalEntity",
-                        "biolink:PhysicalEssence",
-                        "biolink:OrganismalEntity",
-                        "biolink:SubjectOfInvestigation",
-                        "biolink:BiologicalEntity",
-                        "biolink:ThingWithTaxon",
-                        "biolink:NamedThing",
-                        "biolink:Entity",
-                        "biolink:PhysicalEssenceOrOccurrent",
-                    ],
                 },
             ),
         ],
