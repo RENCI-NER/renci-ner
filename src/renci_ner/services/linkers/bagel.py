@@ -11,12 +11,12 @@
 import functools
 import json
 import logging
-import os
 from dataclasses import dataclass, replace
 
 import requests
 from requests.auth import HTTPBasicAuth
 
+from renci_ner.config import get_setting
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
@@ -31,6 +31,8 @@ RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
 BAGEL_PROMPT_NAME = "bagel/ask_classes"
 DEFAULT_LIMIT = 10
 BAGEL_DEFAULT_TIMEOUT = 120
+# LLM settings are deliberately not read from .env (unlike the URL and credentials): they
+# change Bagel's choices, so they belong in code or props where a run shows them. See #28.
 DEFAULT_TOP_P = 0.5
 DEFAULT_TEMPERATURE = 1.0
 
@@ -113,7 +115,7 @@ class BagelAnnotator(Transformer):
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="Bagel", url=RENCI_BAGEL_URL, version=self.openapi_version
+            name="Bagel", url=self.url, version=self.openapi_version
         )
 
     def __str__(self):
@@ -121,7 +123,7 @@ class BagelAnnotator(Transformer):
 
     def __init__(
         self,
-        url=RENCI_BAGEL_URL,
+        url=None,
         requests_session=None,
         timeout=120,
         nodenorm=None,
@@ -131,16 +133,18 @@ class BagelAnnotator(Transformer):
         """
         Set up a Bagel service.
 
-        :param url: The URL of the Bagel service.
+        :param url: The URL of the Bagel service. Defaults to the BAGEL_URL setting (in
+            the environment or a .env file; see env.default), or else RENCI_BAGEL_URL.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         :param nodenorm: The NodeNorm instance to use to look up descriptions and types for
             candidates. Defaults to a NodeNorm sharing this service's requests session.
-        :param username: Bagel username; defaults to the BAGEL_USERNAME environment variable.
-        :param password: Bagel password; defaults to the BAGEL_PASSWORD environment variable.
+        :param username: Bagel username; defaults to the BAGEL_USERNAME setting.
+        :param password: Bagel password; defaults to the BAGEL_PASSWORD setting.
         """
-        username = username or os.environ.get("BAGEL_USERNAME")
-        password = password or os.environ.get("BAGEL_PASSWORD")
+        url = url or get_setting("BAGEL_URL", RENCI_BAGEL_URL)
+        username = username or get_setting("BAGEL_USERNAME")
+        password = password or get_setting("BAGEL_PASSWORD")
         if not username or not password:
             raise ValueError(
                 "Bagel needs credentials: pass username/password or set BAGEL_USERNAME and BAGEL_PASSWORD."
@@ -172,6 +176,7 @@ class BagelAnnotator(Transformer):
             "temperature": f"The temperature to use for the LLM (default: {DEFAULT_TEMPERATURE}).",
             "top_p": f"The top_p to use for the LLM (default: {DEFAULT_TOP_P}).",
             "limit": "The maximum number of results to return.",
+            "skip_cache": "(true/false, default: false) Bypass the in-memory caches (Bagel's and NodeNorm's) for this call.",
         }
 
     def transform(
@@ -182,16 +187,24 @@ class BagelAnnotator(Transformer):
 
         Candidates are the NormalizedAnnotations sharing a start/end; up to `limit` of Bagel's
         choices replace them, each based_on the candidate it came from. Spans with no linked
-        candidates (e.g. an NER annotation no linker matched) pass through unchanged.
+        candidates (e.g. an NER annotation no linker matched) pass through unchanged, as do
+        spans where Bagel picks none of the candidates. A CURIE found by several linkers is
+        offered to Bagel once, and the winner is based_on the first linker's candidate.
 
         :param annotated_text: An AnnotatedText with candidate annotations to re-rank.
         :param props: Properties to use with Bagel (see supported_properties).
         :return: An AnnotatedText with Bagel's choices.
         """
-        if props is None:
-            props = {}
+        props = dict(props or {})
+        skip_cache = props.pop("skip_cache", False)
         timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
         limit = props.get("limit", DEFAULT_LIMIT)
+        # query_bagel.__wrapped__ is the uncached function underneath the lru_cache.
+        query_bagel = (
+            functools.partial(BagelAnnotator.query_bagel.__wrapped__, self)
+            if skip_cache
+            else self.query_bagel
+        )
 
         spans: dict[tuple[int, int], list] = {}
         for ann in annotated_text.annotations:
@@ -205,7 +218,8 @@ class BagelAnnotator(Transformer):
             if isinstance(ann, NormalizedAnnotation)
         }
         normalized = self.nodenorm.normalize(
-            sorted(candidate_ids), {"description": True, "timeout": timeout}
+            sorted(candidate_ids),
+            {"description": True, "timeout": timeout, "skip_cache": skip_cache},
         )
 
         output_annotations = []
@@ -215,21 +229,29 @@ class BagelAnnotator(Transformer):
                 output_annotations.extend(group)
                 continue
 
-            possible_matches = {
+            # Linkers often agree on a CURIE; send Bagel each CURIE once, crediting the first
+            # linker that found it. Keep the order stable so query_bagel's cache can hit.
+            by_id = {}
+            for candidate in candidates:
+                by_id.setdefault(candidate.id, candidate)
+            possible_matches = tuple(
                 self._bagel_result(candidate, normalized.get(candidate.id))
-                for candidate in candidates
-            }
+                for candidate in by_id.values()
+            )
             logger.debug(
                 f"Querying Bagel for '{candidates[0].text}' with {len(possible_matches)} candidates."
             )
-            bagel_results = self.query_bagel(
+            bagel_results = query_bagel(
                 candidates[0].text,
                 annotated_text.text,
-                tuple(possible_matches),
+                possible_matches,
                 json.dumps(props, sort_keys=True),
             )
+            if not bagel_results:
+                # Bagel rejected every candidate; keep them rather than losing the span.
+                output_annotations.extend(group)
+                continue
 
-            by_id = {candidate.id: candidate for candidate in candidates}
             for bagel_result in bagel_results[:limit]:
                 winner = by_id.get(bagel_result.identifier)
                 if winner is None:

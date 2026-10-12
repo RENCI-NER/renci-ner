@@ -1,4 +1,5 @@
 import pytest
+from conftest import FakeSession
 from requests import HTTPError
 
 from renci_ner.core import (
@@ -50,6 +51,7 @@ def test_transform_groups_candidates_by_span(monkeypatch):
 
     # Build a BagelAnnotator without touching the network.
     bagel = BagelAnnotator.__new__(BagelAnnotator)
+    bagel.url = "http://bagel.example/"
     bagel.openapi_version = "test"
     queries = []
 
@@ -209,6 +211,7 @@ def test_check():
 def offline_bagel(bagel_results, normalized=None):
     """A BagelAnnotator that never touches the network and answers every span with bagel_results."""
     bagel = BagelAnnotator.__new__(BagelAnnotator)
+    bagel.url = "http://bagel.example/"
     bagel.openapi_version = "test"
 
     class FakeNodeNorm:
@@ -248,7 +251,7 @@ NAMERES = AnnotationProvenance("NameRes", "http://nameres.example/", "1")
 
 
 def test_no_bagel_results_keeps_the_span():
-    """If Bagel returns nothing (e.g. a 403, or it rejects every candidate), the span must not vanish."""
+    """If Bagel returns nothing (it rejects every candidate), the span must not vanish."""
     annotated = AnnotatedText("The brain.", [candidate(SAPBERT, "UBERON:0000955")])
     result = offline_bagel([]).transform(annotated)
     assert result.annotations == annotated.annotations
@@ -334,3 +337,29 @@ def test_candidate_without_nodenorm_entry_keeps_its_own_type():
         "biolink:AnatomicalEntity",
         "",
     )
+
+
+def test_skip_cache_bypasses_bagel_and_nodenorm_caches():
+    """skip_cache: True re-asks Bagel and NodeNorm even when the same span was just cached."""
+
+    def answer(url, body):
+        if url.endswith("/group_synonyms_openai"):
+            return []  # Bagel rejects every candidate.
+        return {curie: None for curie in body["curies"]}  # NodeNorm knows none of them.
+
+    session = FakeSession(payload=answer)
+    bagel = BagelAnnotator(requests_session=session, username="u", password="p")
+    annotated = AnnotatedText("The brain.", [candidate(SAPBERT, "UBERON:0000955")])
+
+    def posts():
+        return [url.rsplit("/", 1)[-1] for _, url, _ in session.requests]
+
+    bagel.transform(annotated, {"limit": 1})
+    assert posts() == ["get_normalized_nodes", "group_synonyms_openai"]
+
+    bagel.transform(annotated, {"limit": 1})
+    assert len(posts()) == 2  # Both answers came from the caches.
+
+    bagel.transform(annotated, {"limit": 1, "skip_cache": True})
+    bagel.transform(annotated, {"limit": 1, "skip_cache": True})
+    assert len(posts()) == 6
