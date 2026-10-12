@@ -35,6 +35,19 @@ BioMegatron().annotate(text).reannotate(NameRes(), {"limit": 1}).transform(NodeN
 
 `Pipeline` and `MultiAnnotator` are themselves `Annotator`s, so they nest.
 
+## Configuration
+
+Settings are read from the environment or from a `.env` file in the current directory
+(or the nearest parent directory that has one); the environment wins if both set a
+variable. Copy [`env.default`](env.default) to `.env` and fill it in:
+
+* `BAGEL_USERNAME` and `BAGEL_PASSWORD`: credentials for Bagel, which needs them.
+* `BIOMEGATRON_URL`, `NAMERES_URL`, `SAPBERT_URL`, `NODENORM_URL` and `BAGEL_URL`:
+  use another instance of a service instead of the one hosted at RENCI. A URL passed
+  to a service's constructor overrides these. Provenance records the URL actually used.
+
+`.env` is gitignored, so credentials in it stay out of the repository.
+
 ## Development
 
 This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
