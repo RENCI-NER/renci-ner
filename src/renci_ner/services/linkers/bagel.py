@@ -176,6 +176,7 @@ class BagelAnnotator(Transformer):
             "temperature": f"The temperature to use for the LLM (default: {DEFAULT_TEMPERATURE}).",
             "top_p": f"The top_p to use for the LLM (default: {DEFAULT_TOP_P}).",
             "limit": "The maximum number of results to return.",
+            "skip_cache": "(true/false, default: false) Bypass the in-memory caches (Bagel's and NodeNorm's) for this call.",
         }
 
     def transform(
@@ -194,10 +195,16 @@ class BagelAnnotator(Transformer):
         :param props: Properties to use with Bagel (see supported_properties).
         :return: An AnnotatedText with Bagel's choices.
         """
-        if props is None:
-            props = {}
+        props = dict(props or {})
+        skip_cache = props.pop("skip_cache", False)
         timeout = props.get("timeout", BAGEL_DEFAULT_TIMEOUT)
         limit = props.get("limit", DEFAULT_LIMIT)
+        # query_bagel.__wrapped__ is the uncached function underneath the lru_cache.
+        query_bagel = (
+            functools.partial(BagelAnnotator.query_bagel.__wrapped__, self)
+            if skip_cache
+            else self.query_bagel
+        )
 
         spans: dict[tuple[int, int], list] = {}
         for ann in annotated_text.annotations:
@@ -211,7 +218,8 @@ class BagelAnnotator(Transformer):
             if isinstance(ann, NormalizedAnnotation)
         }
         normalized = self.nodenorm.normalize(
-            sorted(candidate_ids), {"description": True, "timeout": timeout}
+            sorted(candidate_ids),
+            {"description": True, "timeout": timeout, "skip_cache": skip_cache},
         )
 
         output_annotations = []
@@ -233,7 +241,7 @@ class BagelAnnotator(Transformer):
             logger.debug(
                 f"Querying Bagel for '{candidates[0].text}' with {len(possible_matches)} candidates."
             )
-            bagel_results = self.query_bagel(
+            bagel_results = query_bagel(
                 candidates[0].text,
                 annotated_text.text,
                 possible_matches,
