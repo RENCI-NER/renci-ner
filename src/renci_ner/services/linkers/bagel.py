@@ -11,13 +11,13 @@
 import functools
 import json
 import logging
-import os
 from dataclasses import dataclass, replace
 
 import requests
 from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
+from renci_ner.config import get_setting
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
@@ -33,10 +33,6 @@ DEFAULT_LIMIT = 10
 BAGEL_DEFAULT_TIMEOUT = 120
 DEFAULT_TOP_P = 0.5
 DEFAULT_TEMPERATURE = 1.0
-
-# Load BAGEL_USERNAME and BAGEL_PASSWORD from the environment.
-BAGEL_USERNAME = os.environ.get("BAGEL_USERNAME")
-BAGEL_PASSWORD = os.environ.get("BAGEL_PASSWORD")
 
 logger = logging.getLogger(__name__)
 
@@ -134,14 +130,24 @@ class BagelAnnotator(Transformer):
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         :param nodenorm: The NodeNorm instance to use to look up descriptions and types for
             candidates. Defaults to a NodeNorm sharing this service's requests session.
+
+        Bagel requires a username and password, read from the BAGEL_USERNAME and
+        BAGEL_PASSWORD settings (in the environment or a .env file; see env.default).
         """
         self.url = url
+        username = get_setting("BAGEL_USERNAME")
+        password = get_setting("BAGEL_PASSWORD")
+        if not (username and password):
+            logger.warning(
+                "BAGEL_USERNAME and BAGEL_PASSWORD are not set; Bagel will likely refuse requests."
+            )
+        self.auth = HTTPBasicAuth(username or "", password or "")
         self.rerank_url = url + "/group_synonyms_openai"
         self.requests_session = requests_session or requests.Session()
 
         response = self.requests_session.get(
             self.url + "/openapi.json",
-            auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
+            auth=self.auth,
             timeout=timeout,
         )
         response.raise_for_status()
@@ -320,8 +326,7 @@ class BagelAnnotator(Transformer):
         response = session.post(
             self.rerank_url,
             json=request_json,
-            # TODO: make this more configurable.
-            auth=HTTPBasicAuth(BAGEL_USERNAME, BAGEL_PASSWORD),
+            auth=self.auth,
             timeout=timeout,
         )
 
