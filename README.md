@@ -35,6 +35,19 @@ BioMegatron().annotate(text).reannotate(NameRes(), {"limit": 1}).transform(NodeN
 
 `Pipeline` and `MultiAnnotator` are themselves `Annotator`s, so they nest.
 
+## Configuration
+
+Settings are read from the environment or from a `.env` file in the current directory
+(or the nearest parent directory that has one); the environment wins if both set a
+variable. Copy [`env.default`](env.default) to `.env` and fill it in:
+
+* `BAGEL_USERNAME` and `BAGEL_PASSWORD`: credentials for Bagel, which needs them.
+* `BIOMEGATRON_URL`, `NAMERES_URL`, `SAPBERT_URL`, `NODENORM_URL` and `BAGEL_URL`:
+  use another instance of a service instead of the one hosted at RENCI. A URL passed
+  to a service's constructor overrides these. Provenance records the URL actually used.
+
+`.env` is gitignored, so credentials in it stay out of the repository.
+
 ## Development
 
 This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
@@ -164,7 +177,10 @@ properties after it has been changed into a `NormalizedAnnotation`.
 * `label` (str): The label for the annotation.
 * `type` (str): The type of the annotation.
 * `start` (int): The start index of the annotation.
-* `end` (int): The end index of the annotation.
+* `end` (int): The end index of the annotation. `start` and `end` are offsets into
+  the `AnnotatedText`'s full text, for this annotation and for every annotation
+  in its `based_on` chain; `reannotate()` moves the offsets an annotator returns
+  (relative to the annotation text it was given) back to the full text.
 * `provenance` (`AnnotationProvenance`): The provenance for this annotation.
   The `provenances` property provides a list of all the provenances
   that have been used to create this annotation by reading them from the `based_on` list.
@@ -215,7 +231,8 @@ A transformer transforms an AnnotatedText into another AnnotatedText.
 
 e.g. NodeNorm for normalizing IDs; Bagel for choosing among the linked candidates at
 each span (an annotation is a candidate if it is a `NormalizedAnnotation`; spans with
-no candidates pass through unchanged).
+no candidates, or whose candidates Bagel all rejects, pass through unchanged). A CURIE
+found by several linkers is offered once, credited to the first linker in `based_on`.
 
 ### Pipeline
 

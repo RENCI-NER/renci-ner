@@ -233,26 +233,38 @@ class AnnotatedText:
                 # We have one or more annotations. So we need to update the based_on by adding annotation to the
                 # existing list.
                 new_based_on = [*annotation.based_on, annotation]
-                base_start = annotation.start
 
                 for reannotation in reannotations:
-                    # Fix the start and end indices.
-                    new_start = reannotation.start
+                    assert len(reannotation.text) == (
+                        reannotation.end - reannotation.start
+                    )
 
-                    text_size = len(reannotation.text)
-                    assert text_size == (reannotation.end - reannotation.start)
+                    # The annotator saw only annotation.text, so its offsets -- including
+                    # those in anything it recorded in based_on (e.g. a nested pipeline) --
+                    # need to be moved to the full text.
+                    shifted = _shifted(reannotation, annotation.start)
 
-                    reannotation.start = base_start + new_start
-                    reannotation.end = base_start + new_start + text_size
+                    # Each reannotation gets its own list. The annotator's based_on
+                    # goes after our chain, since it happened later.
+                    shifted.based_on = [*new_based_on, *shifted.based_on]
 
-                    # Each reannotation gets its own list. Anything the annotator
-                    # already recorded in based_on (e.g. a nested pipeline) goes
-                    # after our chain, since it happened later.
-                    reannotation.based_on = [*new_based_on, *reannotation.based_on]
-
-                    new_annotations.append(reannotation)
+                    new_annotations.append(shifted)
 
         return replace(self, annotations=new_annotations)
+
+
+def _shifted(annotation: Annotation, offset: int) -> Annotation:
+    """
+    Return a copy of an annotation, and of every annotation in its based_on chain, moved `offset`
+    characters later in the text. Copying rather than editing in place means annotations that an
+    annotator shares between results (or keeps around) are never moved twice.
+    """
+    return replace(
+        annotation,
+        start=annotation.start + offset,
+        end=annotation.end + offset,
+        based_on=[_shifted(ann, offset) for ann in annotation.based_on],
+    )
 
 
 class Annotator:

@@ -7,6 +7,7 @@ from dataclasses import replace
 
 import requests
 
+from renci_ner.config import get_setting
 from renci_ner.core import (
     AnnotatedText,
     AnnotationProvenance,
@@ -29,20 +30,22 @@ class NodeNorm(Transformer):
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="NodeNorm", url=RENCI_NODENORM_URL, version=self.openapi_version
+            name="NodeNorm", url=self.url, version=self.openapi_version
         )
 
     def __str__(self):
         return f"NodeNorm(url={self.url}, version={self.openapi_version})"
 
-    def __init__(self, url=RENCI_NODENORM_URL, requests_session=None, timeout=120):
+    def __init__(self, url=None, requests_session=None, timeout=120):
         """
         Set up a NodeNorm service.
 
-        :param url: The URL of the NodeNorm service.
+        :param url: The URL of the NodeNorm service. Defaults to the NODENORM_URL setting (in
+            the environment or a .env file; see env.default), or else RENCI_NODENORM_URL.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
+        url = url or get_setting("NODENORM_URL", RENCI_NODENORM_URL)
         self.url = url
         self.get_normalized_nodes_url = url + "/get_normalized_nodes"
         self.requests_session = requests_session or requests.Session()
