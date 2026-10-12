@@ -67,6 +67,26 @@ session = make_session(retries=10)
 nameres = NameRes(requests_session=session)
 ```
 
+## Caching
+
+Results are cached in memory, per service instance, so annotating the same text again
+(or running a pipeline over repeated texts) doesn't repeat the HTTP calls:
+
+* Every `Annotator`, including `Pipeline` and `MultiAnnotator`, caches `annotate()`
+  results per text and props, in an LRU of `cache_size` entries (default 10,000; set
+  it to 0 on a class or instance to turn caching off).
+* NodeNorm caches each identifier's result, separately for each set of conflation
+  flags, and only asks for identifiers it hasn't seen.
+* Bagel caches its answer for each span and set of candidates.
+
+Pass `skip_cache: True` in a call's props to bypass the caches for that call. An empty
+result from an HTTP 403 is cached like any other annotator result, so use `skip_cache`
+to try such a text again; NodeNorm doesn't cache identifiers that got a 403.
+
+Cached results are shared between callers, so don't modify an `AnnotatedText` that a
+service returned. A new service should implement `_annotate()`, not `annotate()`, so
+that it is cached.
+
 ## Development
 
 This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
