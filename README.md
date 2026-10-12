@@ -218,7 +218,8 @@ A transformer transforms an AnnotatedText into another AnnotatedText.
 
 e.g. NodeNorm for normalizing IDs; Bagel for choosing among the linked candidates at
 each span (an annotation is a candidate if it is a `NormalizedAnnotation`; spans with
-no candidates pass through unchanged).
+no candidates, or whose candidates Bagel all rejects, pass through unchanged). A CURIE
+found by several linkers is offered once, credited to the first linker in `based_on`.
 
 ### Pipeline
 
