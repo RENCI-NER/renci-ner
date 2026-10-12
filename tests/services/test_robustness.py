@@ -38,7 +38,9 @@ def test_nodenorm_403_returns_empty(caplog):
     assert "UBERON:0000955" in caplog.text
 
 
-def test_bagel_requires_credentials(monkeypatch):
+def test_bagel_requires_credentials(tmp_path, monkeypatch):
+    # Run from an empty directory so a developer's .env can't supply credentials.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("BAGEL_USERNAME", raising=False)
     monkeypatch.delenv("BAGEL_PASSWORD", raising=False)
     with pytest.raises(ValueError):
