@@ -113,19 +113,18 @@ class BagelAnnotator(Transformer):
     def provenance(self) -> AnnotationProvenance:
         """Return an AnnotationProvenance describing annotations produced by this service."""
         return AnnotationProvenance(
-            name="Bagel", url=RENCI_BAGEL_URL, version=self.openapi_version
+            name="Bagel", url=self.url, version=self.openapi_version
         )
 
     def __str__(self):
         return f"BagelAnnotator(url={self.url}, version={self.openapi_version})"
 
-    def __init__(
-        self, url=RENCI_BAGEL_URL, requests_session=None, timeout=120, nodenorm=None
-    ):
+    def __init__(self, url=None, requests_session=None, timeout=120, nodenorm=None):
         """
         Set up a Bagel service.
 
-        :param url: The URL of the Bagel service.
+        :param url: The URL of the Bagel service. Defaults to the BAGEL_URL setting (in
+            the environment or a .env file; see env.default), or else RENCI_BAGEL_URL.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         :param nodenorm: The NodeNorm instance to use to look up descriptions and types for
@@ -134,6 +133,7 @@ class BagelAnnotator(Transformer):
         Bagel requires a username and password, read from the BAGEL_USERNAME and
         BAGEL_PASSWORD settings (in the environment or a .env file; see env.default).
         """
+        url = url or get_setting("BAGEL_URL", RENCI_BAGEL_URL)
         self.url = url
         username = get_setting("BAGEL_USERNAME")
         password = get_setting("BAGEL_PASSWORD")

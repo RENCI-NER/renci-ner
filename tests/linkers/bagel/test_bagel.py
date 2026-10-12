@@ -50,6 +50,7 @@ def test_transform_groups_candidates_by_span(monkeypatch):
 
     # Build a BagelAnnotator without touching the network.
     bagel = BagelAnnotator.__new__(BagelAnnotator)
+    bagel.url = "http://bagel.example/"
     bagel.openapi_version = "test"
     queries = []
 
@@ -209,6 +210,7 @@ def test_check():
 def offline_bagel(bagel_results, normalized=None):
     """A BagelAnnotator that never touches the network and answers every span with bagel_results."""
     bagel = BagelAnnotator.__new__(BagelAnnotator)
+    bagel.url = "http://bagel.example/"
     bagel.openapi_version = "test"
 
     class FakeNodeNorm:
