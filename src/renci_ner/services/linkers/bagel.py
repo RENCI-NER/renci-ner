@@ -14,7 +14,6 @@ import logging
 from dataclasses import dataclass, replace
 
 import requests
-from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
 from renci_ner.config import get_setting
@@ -25,6 +24,7 @@ from renci_ner.core import (
     Transformer,
 )
 from renci_ner.services.normalization.nodenorm import NodeNorm
+from renci_ner.utils import forbidden
 
 # Configuration.
 RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
@@ -121,7 +121,15 @@ class BagelAnnotator(Transformer):
     def __str__(self):
         return f"BagelAnnotator(url={self.url}, version={self.openapi_version})"
 
-    def __init__(self, url=None, requests_session=None, timeout=120, nodenorm=None):
+    def __init__(
+        self,
+        url=None,
+        requests_session=None,
+        timeout=120,
+        nodenorm=None,
+        username=None,
+        password=None,
+    ):
         """
         Set up a Bagel service.
 
@@ -131,26 +139,24 @@ class BagelAnnotator(Transformer):
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         :param nodenorm: The NodeNorm instance to use to look up descriptions and types for
             candidates. Defaults to a NodeNorm sharing this service's requests session.
-
-        Bagel requires a username and password, read from the BAGEL_USERNAME and
-        BAGEL_PASSWORD settings (in the environment or a .env file; see env.default).
+        :param username: Bagel username; defaults to the BAGEL_USERNAME setting.
+        :param password: Bagel password; defaults to the BAGEL_PASSWORD setting.
         """
         url = url or get_setting("BAGEL_URL", RENCI_BAGEL_URL)
-        self.url = url
-        username = get_setting("BAGEL_USERNAME")
-        password = get_setting("BAGEL_PASSWORD")
-        if not (username and password):
-            logger.warning(
-                "BAGEL_USERNAME and BAGEL_PASSWORD are not set; Bagel will likely refuse requests."
+        username = username or get_setting("BAGEL_USERNAME")
+        password = password or get_setting("BAGEL_PASSWORD")
+        if not username or not password:
+            raise ValueError(
+                "Bagel needs credentials: pass username/password or set BAGEL_USERNAME and BAGEL_PASSWORD."
             )
-        self.auth = HTTPBasicAuth(username or "", password or "")
+        self.auth = HTTPBasicAuth(username, password)
+
+        self.url = url
         self.rerank_url = url + "/group_synonyms_openai"
         self.requests_session = requests_session or requests.Session()
 
         response = self.requests_session.get(
-            self.url + "/openapi.json",
-            auth=self.auth,
-            timeout=timeout,
+            self.url + "/openapi.json", auth=self.auth, timeout=timeout
         )
         response.raise_for_status()
         openapi_data = response.json()
@@ -326,16 +332,10 @@ class BagelAnnotator(Transformer):
         }
         logger.debug(f"Bagel request: {json.dumps(request_json, indent=2)}")
         response = session.post(
-            self.rerank_url,
-            json=request_json,
-            auth=self.auth,
-            timeout=timeout,
+            self.rerank_url, json=request_json, auth=self.auth, timeout=timeout
         )
-
-        if not response.ok:
-            raise HTTPError(
-                f"Bagel request failed with error {response.status_code} {response.text}: {json.dumps(request_json, indent=2)}"
-            )
+        if forbidden(response, entity_text, request_json):
+            return []
 
         result = response.json()
         logger.debug(f"Bagel result: {json.dumps(result, indent=2, sort_keys=True)}")

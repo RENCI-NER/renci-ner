@@ -60,6 +60,7 @@ a re-ranker. Both are Annotators themselves, so they nest.
 ### Key Patterns
 
 - All services call external HTTP APIs with a default 120s timeout
+- `renci_ner.utils`: `make_session(retries)` gives a retrying session to pass as `requests_session`; `forbidden(response, text, data)` logs HTTP 403s (RENCI ingress) so services return an empty result instead of aborting, and raises on any other error
 - Settings (Bagel credentials, `*_URL` overrides for each service) come from `renci_ner.config.get_setting()`: the environment, then the nearest `.env` (template: `env.default`). It never loads `.env` into `os.environ`, since this is a library. Read settings at construction time, not import time
 - `reannotate()` preserves/adjusts start/end offsets through the chain; 0 results keeps original annotation
 - `AnnotatedText.location` is an opaque passthrough; services build results with `dataclasses.replace()` so it survives
