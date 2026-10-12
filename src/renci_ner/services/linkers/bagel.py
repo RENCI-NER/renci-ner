@@ -31,6 +31,8 @@ RENCI_BAGEL_URL = "https://bagel.apps.renci.org"
 BAGEL_PROMPT_NAME = "bagel/ask_classes"
 DEFAULT_LIMIT = 10
 BAGEL_DEFAULT_TIMEOUT = 120
+# LLM settings are deliberately not read from .env (unlike the URL and credentials): they
+# change Bagel's choices, so they belong in code or props where a run shows them. See #28.
 DEFAULT_TOP_P = 0.5
 DEFAULT_TEMPERATURE = 1.0
 
