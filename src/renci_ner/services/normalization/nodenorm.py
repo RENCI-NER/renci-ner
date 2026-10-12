@@ -4,6 +4,7 @@
 # Hosted at: https://nodenormalization-sri.renci.org/
 #
 import logging
+from dataclasses import replace
 
 import requests
 
@@ -31,19 +32,20 @@ class NodeNorm(Transformer):
             name="NodeNorm", url=RENCI_NODENORM_URL, version=self.openapi_version
         )
 
-    def __init__(
-        self, url=RENCI_NODENORM_URL, requests_session=requests.Session(), timeout=120
-    ):
-        """
-        Set up a BioMegatron service.
+    def __str__(self):
+        return f"NodeNorm(url={self.url}, version={self.openapi_version})"
 
-        :param url: The URL of the BioMegatron service.
+    def __init__(self, url=RENCI_NODENORM_URL, requests_session=None, timeout=120):
+        """
+        Set up a NodeNorm service.
+
+        :param url: The URL of the NodeNorm service.
         :param requests_session: A Requests session object to use instead of the default one.
         :param timeout: The timeout to use for requests in seconds. Default: 120 seconds.
         """
         self.url = url
         self.get_normalized_nodes_url = url + "/get_normalized_nodes"
-        self.requests_session = requests_session
+        self.requests_session = requests_session or requests.Session()
 
         response = self.requests_session.get(
             self.url + "/openapi.json", timeout=timeout
@@ -57,7 +59,7 @@ class NodeNorm(Transformer):
     def supported_properties(self):
         """Some configurable parameters."""
         return {
-            "timeout": f"The timeout in seconds for requests to NodeNorm. Default: ${NODENORM_DEFAULT_TIMEOUT} seconds.",
+            "timeout": f"The timeout in seconds for requests to NodeNorm. Default: {NODENORM_DEFAULT_TIMEOUT} seconds.",
             "geneprotein_conflation": "(true/false, default: true) Whether to conflate gene and protein identifiers.",
             "drugchemical_conflation": "(true/false, default: false) Whether to conflate drug and chemical identifiers.",
             "description": "(true/false, default: false) Whether to include descriptions in the response.",
@@ -73,6 +75,9 @@ class NodeNorm(Transformer):
         """
         if props is None:
             props = {}
+        if not identifiers:
+            # NodeNorm rejects an empty list, and there is nothing to do anyway.
+            return {}
         session = self.requests_session
         timeout = props.get("timeout", NODENORM_DEFAULT_TIMEOUT)
 
@@ -148,7 +153,7 @@ class NodeNorm(Transformer):
                 label=result["id"].get("label", ""),
             )
             normalized_annotation.props["types"] = types
-            normalized_annotation.props["ic"] = results.get("ic", None)
+            normalized_annotation.props["ic"] = result.get("information_content")
 
             if props.get("description", False):
                 normalized_annotation.props["description"] = result["id"].get(
@@ -157,4 +162,4 @@ class NodeNorm(Transformer):
 
             output_annotations.append(normalized_annotation)
 
-        return AnnotatedText(annotated_text.text, output_annotations)
+        return replace(annotated_text, annotations=output_annotations)

@@ -1,14 +1,16 @@
-import pytest
-from requests import HTTPError
-
 from renci_ner.core import (
     AnnotatedText,
     Annotation,
+    AnnotationProvenance,
     NormalizedAnnotation,
 )
 from renci_ner.services.linkers.nameres import NameRes
-from renci_ner.services.ner.biomegatron import BioMegatron
 from renci_ner.services.normalization.nodenorm import NodeNorm
+
+# Only the provenance is needed, so don't depend on BioMegatron being reachable.
+BIOMEGATRON_PROVENANCE = AnnotationProvenance(
+    "BioMegatron", "https://med-nemo.apps.renci.org", "test"
+)
 
 
 def test_check():
@@ -25,10 +27,8 @@ def test_check():
 
     umls_C1412149 = results["UMLS:C1412149"]
     assert "id" in umls_C1412149
-    assert umls_C1412149["id"] == {
-        "identifier": "NCBIGene:71",
-        "label": "ACTG1",
-    }
+    assert umls_C1412149["id"]["identifier"] == "NCBIGene:71"
+    assert umls_C1412149["id"]["label"] == "ACTG1"
     assert "information_content" in umls_C1412149
     assert umls_C1412149["taxa"] == ["NCBITaxon:9606"]
 
@@ -39,12 +39,6 @@ def test_with_transform():
     and DrugChemical conflation are turned on in NameRes and (eventually) in SAPBERT. When we get a non-RENCI
     linker in here we can use it there; until then, I'll just make up an example to test this.
     """
-
-    try:
-        biomegatron = BioMegatron()
-    except HTTPError as err:
-        pytest.skip(f"BioMegatron is not available: {err}")
-        return
 
     nameres = NameRes()
 
@@ -68,7 +62,7 @@ def test_with_transform():
                         type="biolink:Protein",
                         start=10,
                         end=15,
-                        provenance=biomegatron.provenance,
+                        provenance=BIOMEGATRON_PROVENANCE,
                         based_on=[],
                         props={},
                     ),
@@ -105,6 +99,18 @@ def test_with_transform():
         nodenorm, {"geneprotein_conflation": True}
     )
 
+    # Information content changes between Babel releases, so check its type and
+    # drop it before comparing everything else.
+    assert isinstance(result_nodenorm.annotations[0].props.pop("ic"), float)
+
+    # The type list grows with the Biolink model, so only check that it leads with the
+    # Gene type and, with gene/protein conflation, includes the Protein type. The
+    # based_on annotation's types are still compared exactly below: they must not have
+    # been changed by NodeNorm.
+    types = result_nodenorm.annotations[0].props.pop("types")
+    assert types[0] == "biolink:Gene"
+    assert "biolink:Protein" in types
+
     assert result_nodenorm == AnnotatedText(
         "What does actin do?",
         [
@@ -125,7 +131,7 @@ def test_with_transform():
                         type="biolink:Protein",
                         start=10,
                         end=15,
-                        provenance=biomegatron.provenance,
+                        provenance=BIOMEGATRON_PROVENANCE,
                         based_on=[],
                         props={},
                     ),
@@ -146,14 +152,13 @@ def test_with_transform():
                                 type="biolink:Protein",
                                 start=10,
                                 end=15,
-                                provenance=biomegatron.provenance,
+                                provenance=BIOMEGATRON_PROVENANCE,
                                 based_on=[],
                                 props={},
                             ),
                         ],
                         props={
                             "highlighting": {},
-                            "ic": None,
                             "taxa": [
                                 "NCBITaxon:9606",
                             ],
@@ -179,26 +184,8 @@ def test_with_transform():
                 ],
                 props={
                     "highlighting": {},
-                    "ic": None,
                     "taxa": [
                         "NCBITaxon:9606",
-                    ],
-                    "types": [
-                        "biolink:Gene",
-                        "biolink:GeneOrGeneProduct",
-                        "biolink:GenomicEntity",
-                        "biolink:ChemicalEntityOrGeneOrGeneProduct",
-                        "biolink:PhysicalEssence",
-                        "biolink:OntologyClass",
-                        "biolink:BiologicalEntity",
-                        "biolink:ThingWithTaxon",
-                        "biolink:NamedThing",
-                        "biolink:PhysicalEssenceOrOccurrent",
-                        "biolink:MacromolecularMachineMixin",
-                        "biolink:Protein",
-                        "biolink:GeneProductMixin",
-                        "biolink:Polypeptide",
-                        "biolink:ChemicalEntityOrProteinOrPolypeptide",
                     ],
                 },
             )

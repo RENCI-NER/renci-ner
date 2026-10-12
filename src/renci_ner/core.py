@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Self
 
 
@@ -13,6 +13,14 @@ class AnnotationProvenance:
     name: str
     url: str
     version: str
+
+    def to_dict(self) -> dict:
+        return {
+            "@type": "renci_ner:AnnotationProvenance",
+            "name": self.name,
+            "url": self.url,
+            "version": self.version,
+        }
 
 
 @dataclass
@@ -40,6 +48,25 @@ class Annotation:
     def provenances(self) -> list[AnnotationProvenance]:
         """Return a list of provenances for this annotation and its based_on annotations."""
         return list(map(lambda ann: ann.provenance, self.based_on)) + [self.provenance]
+
+    def __str__(self):
+        """A one-line summary; the dataclass repr includes the whole based_on chain."""
+        return f"{type(self).__name__}('{self.text}' [{self.start}:{self.end}] -> {self.id} '{self.label}' {self.type})"
+
+    def to_dict(self) -> dict:
+        """A JSON-serializable dict of this annotation, including its based_on chain."""
+        return {
+            "@type": f"renci_ner:{type(self).__name__}",
+            "text": self.text,
+            "id": self.id,
+            "label": self.label,
+            "type": self.type,
+            "start": self.start,
+            "end": self.end,
+            "provenance": self.provenance.to_dict(),
+            "based_on": [ann.to_dict() for ann in self.based_on],
+            "props": self.props,
+        }
 
 
 @dataclass
@@ -109,13 +136,15 @@ class NormalizedAnnotation(Annotation):
         if biolink_type is None:
             biolink_type = annotation.type
 
-        return NormalizedAnnotation(
+        return cls(
             text=annotation.text,
             start=annotation.start,
             end=annotation.end,
             provenance=provenance,
             based_on=[*annotation.based_on, annotation],
-            props=annotation.props,
+            # Copy, so that later edits to this annotation's props don't leak into
+            # the annotation it was based on.
+            props=dict(annotation.props),
             # These fields are overwritten during normalization.
             id=curie,
             label=label,
@@ -123,15 +152,39 @@ class NormalizedAnnotation(Annotation):
             biolink_type=biolink_type,
         )
 
+    def to_dict(self) -> dict:
+        return super().to_dict() | {"biolink_type": self.biolink_type}
+
 
 @dataclass
 class AnnotatedText:
     """
     A class for storing a text along with a set of annotations from a single source.
+
+    `location` describes where the text came from (e.g. a filename, row and column) and is
+    carried through reannotate()/transform() unchanged. Its contents are up to whoever reads
+    and writes the texts.
     """
 
     text: str
     annotations: list[Annotation] = field(default_factory=list)
+    location: list[str] = field(default_factory=list)
+
+    def __str__(self):
+        text = self.text if len(self.text) <= 100 else self.text[:100] + "..."
+        if len(self.annotations) <= 20:
+            annotations = ", ".join(map(str, self.annotations))
+        else:
+            annotations = f"{len(self.annotations)} annotations"
+        return f"AnnotatedText('{text}', location={self.location}, annotations=[{annotations}])"
+
+    def to_dict(self) -> dict:
+        return {
+            "@type": "renci_ner:AnnotatedText",
+            "text": self.text,
+            "location": self.location,
+            "annotations": [ann.to_dict() for ann in self.annotations],
+        }
 
     def transform(self, transformer: "Transformer", props: dict = None) -> Self:
         """
@@ -180,24 +233,38 @@ class AnnotatedText:
                 # We have one or more annotations. So we need to update the based_on by adding annotation to the
                 # existing list.
                 new_based_on = [*annotation.based_on, annotation]
-                base_start = annotation.start
 
                 for reannotation in reannotations:
-                    # Fix the start and end indices.
-                    new_start = reannotation.start
+                    assert len(reannotation.text) == (
+                        reannotation.end - reannotation.start
+                    )
 
-                    text_size = len(reannotation.text)
-                    assert text_size == (reannotation.end - reannotation.start)
+                    # The annotator saw only annotation.text, so its offsets -- including
+                    # those in anything it recorded in based_on (e.g. a nested pipeline) --
+                    # need to be moved to the full text.
+                    shifted = _shifted(reannotation, annotation.start)
 
-                    reannotation.start = base_start + new_start
-                    reannotation.end = base_start + new_start + text_size
+                    # Each reannotation gets its own list. The annotator's based_on
+                    # goes after our chain, since it happened later.
+                    shifted.based_on = [*new_based_on, *shifted.based_on]
 
-                    reannotation.provenance = annotator.provenance
-                    reannotation.based_on = new_based_on
+                    new_annotations.append(shifted)
 
-                    new_annotations.append(reannotation)
+        return replace(self, annotations=new_annotations)
 
-        return AnnotatedText(self.text, new_annotations)
+
+def _shifted(annotation: Annotation, offset: int) -> Annotation:
+    """
+    Return a copy of an annotation, and of every annotation in its based_on chain, moved `offset`
+    characters later in the text. Copying rather than editing in place means annotations that an
+    annotator shares between results (or keeps around) are never moved twice.
+    """
+    return replace(
+        annotation,
+        start=annotation.start + offset,
+        end=annotation.end + offset,
+        based_on=[_shifted(ann, offset) for ann in annotation.based_on],
+    )
 
 
 class Annotator:
