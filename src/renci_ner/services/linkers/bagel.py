@@ -172,7 +172,9 @@ class BagelAnnotator(Transformer):
 
         Candidates are the NormalizedAnnotations sharing a start/end; up to `limit` of Bagel's
         choices replace them, each based_on the candidate it came from. Spans with no linked
-        candidates (e.g. an NER annotation no linker matched) pass through unchanged.
+        candidates (e.g. an NER annotation no linker matched) pass through unchanged, as do
+        spans where Bagel picks none of the candidates. A CURIE found by several linkers is
+        offered to Bagel once, and the winner is based_on the first linker's candidate.
 
         :param annotated_text: An AnnotatedText with candidate annotations to re-rank.
         :param props: Properties to use with Bagel (see supported_properties).
@@ -205,21 +207,29 @@ class BagelAnnotator(Transformer):
                 output_annotations.extend(group)
                 continue
 
-            possible_matches = {
+            # Linkers often agree on a CURIE; send Bagel each CURIE once, crediting the first
+            # linker that found it. Keep the order stable so query_bagel's cache can hit.
+            by_id = {}
+            for candidate in candidates:
+                by_id.setdefault(candidate.id, candidate)
+            possible_matches = tuple(
                 self._bagel_result(candidate, normalized.get(candidate.id))
-                for candidate in candidates
-            }
+                for candidate in by_id.values()
+            )
             logger.debug(
                 f"Querying Bagel for '{candidates[0].text}' with {len(possible_matches)} candidates."
             )
             bagel_results = self.query_bagel(
                 candidates[0].text,
                 annotated_text.text,
-                tuple(possible_matches),
+                possible_matches,
                 json.dumps(props, sort_keys=True),
             )
+            if not bagel_results:
+                # Bagel rejected every candidate; keep them rather than losing the span.
+                output_annotations.extend(group)
+                continue
 
-            by_id = {candidate.id: candidate for candidate in candidates}
             for bagel_result in bagel_results[:limit]:
                 winner = by_id.get(bagel_result.identifier)
                 if winner is None:

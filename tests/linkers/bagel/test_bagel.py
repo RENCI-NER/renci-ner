@@ -248,7 +248,7 @@ NAMERES = AnnotationProvenance("NameRes", "http://nameres.example/", "1")
 
 
 def test_no_bagel_results_keeps_the_span():
-    """If Bagel returns nothing (e.g. a 403, or it rejects every candidate), the span must not vanish."""
+    """If Bagel returns nothing (it rejects every candidate), the span must not vanish."""
     annotated = AnnotatedText("The brain.", [candidate(SAPBERT, "UBERON:0000955")])
     result = offline_bagel([]).transform(annotated)
     assert result.annotations == annotated.annotations
