@@ -1,6 +1,6 @@
 [project]
 name = "renci-ner"
-version = "2.0.0"
+version = "1.2.0"
 description = "A library for accessing RENCI NER services."
 readme = "README.md"
 authors = [
