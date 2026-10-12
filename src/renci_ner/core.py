@@ -276,7 +276,7 @@ class Annotator:
     `annotate()` wraps it with a per-instance cache keyed on the text and props.
     """
 
-    # ponytail: one LRU per instance; set to 0 on a subclass or instance to disable.
+    # Size of each instance's LRU cache; set to 0 on a subclass or instance to disable.
     cache_size = 10_000
 
     @property

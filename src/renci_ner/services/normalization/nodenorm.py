@@ -59,7 +59,7 @@ class NodeNorm(Transformer):
             "version", "NA"
         )
 
-        # ponytail: (identifier, flags) -> result, emptied when full. Swap for an LRU
+        # Cache of (identifier, flags) -> result, emptied when full. Swap for an LRU
         # if that ever matters.
         self._cache = {}
         self.cache_size = 100_000
