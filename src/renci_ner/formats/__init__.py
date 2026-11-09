@@ -14,11 +14,23 @@ from pathlib import Path
 from renci_ner.core import AnnotatedText
 
 
-def open_text(filename: str, mode: str = "rt"):
-    """Open a text file, transparently gzipped if the name ends in .gz."""
+def open_text(filename: str, mode: str = "r"):
+    """
+    Open a UTF-8 text file, transparently gzipped if the name ends in .gz.
+
+    The mode is always text: "r" and "w" mean "rt" and "wt" here, as they do for open()
+    (gzip.open would otherwise treat them as binary). Reading uses "utf-8-sig", so a
+    byte-order mark from Windows tools or Excel is dropped rather than ending up in the
+    first text (or breaking json.loads on the first JSONL line); writing never adds one.
+    """
+    if "b" in mode:
+        raise ValueError(f"open_text() opens text files only, not mode {mode!r}")
+    if "t" not in mode:
+        mode += "t"
+    encoding = "utf-8-sig" if "r" in mode else "utf-8"
     if Path(filename).suffix.lower() == ".gz":
-        return gzip.open(filename, mode, encoding="utf-8")
-    return open(filename, mode, encoding="utf-8")
+        return gzip.open(filename, mode, encoding=encoding)
+    return open(filename, mode, encoding=encoding)
 
 
 def format_suffix(filename: str) -> str:

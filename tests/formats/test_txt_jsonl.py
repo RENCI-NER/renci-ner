@@ -8,6 +8,7 @@ from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance
 from renci_ner.formats import (
     JsonlFile,
     TextFile,
+    open_text,
     reader_for_file,
     writer_for_format,
 )
@@ -69,6 +70,33 @@ def test_gzip_by_suffix(tmp_path):
     reader = reader_for_file(str(path))
     assert isinstance(reader, TextFile)
     assert [t.text for t in reader.read()] == ["gzipped brain"]
+
+
+def test_open_text_modes(tmp_path):
+    for name in ("out.txt", "out.txt.gz"):
+        path = str(tmp_path / name)
+        # "w" and "r" are text modes for .gz files too, as they are for open().
+        with open_text(path, "w") as f:
+            f.write("brain\n")
+        with open_text(path, "r") as f:
+            assert f.read() == "brain\n"
+    with pytest.raises(ValueError):
+        open_text(str(tmp_path / "out.txt"), "rb")
+
+
+def test_byte_order_mark_is_dropped(tmp_path):
+    txt = tmp_path / "bom.txt"
+    txt.write_bytes("﻿The brain.\n".encode())
+    assert [t.text for t in reader_for_file(str(txt)).read()] == ["The brain."]
+
+    jsonl = tmp_path / "bom.jsonl"
+    jsonl.write_bytes(("﻿" + json.dumps({"text": "The brain."}) + "\n").encode())
+    assert [t.text for t in reader_for_file(str(jsonl)).read()] == ["The brain."]
+
+    # Writing never adds a byte-order mark.
+    with open_text(str(txt), "w") as f:
+        f.write("The brain.\n")
+    assert txt.read_bytes() == b"The brain.\n"
 
 
 def test_unknown_formats():
