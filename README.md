@@ -107,12 +107,17 @@ with open_text("out.jsonl.gz", "w") as out:
 * `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
   `location` from each line, so annotated output can be read back as input; its
   annotations are not read back.
+* `.csv`, `.tsv`: one text per non-empty cell, in every column or only some
+  (`reader_for_file("in.csv", columns_include=["description"])`, or
+  `columns_exclude`). Writing puts a row's input cells first, then one output row per
+  annotation. Open CSV output with `open_text(filename, "w", newline="")`.
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
 ignored. Each `AnnotatedText` a reader yields has a `location` of
-`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns
-and rows count every line, blank or not. The exception is a JSONL line that already
+`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns.
+Rows count every line of a TXT or JSONL file, blank or not, and every data row of a CSV
+or TSV file, not counting the header. The exception is a JSONL line that already
 has a `location`, such as annotated output read back in: it keeps that one, so it
 still points at the original input.
 
