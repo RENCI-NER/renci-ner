@@ -292,17 +292,23 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str, props: dict = None) -> AnnotatedText:
+    def annotate(self, text: str | AnnotatedText, props: dict = None) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`. Results are cached per (text, props); pass `skip_cache: True` to bypass the cache.
 
+        `text` may be an AnnotatedText (such as one from a renci_ner.formats reader): its text is annotated and the
+        result keeps its `location`. Any annotations it already has are ignored; use reannotate() to build on them.
+
         The returned AnnotatedText may be shared with later callers, so don't modify it.
 
-        :param text: The text to annotate.
+        :param text: The text to annotate, as a str or an AnnotatedText.
         :param props: Properties supported by this annotator to use during the annotation.
         :return AnnotatedText: The annotated text.
         """
+        if isinstance(text, AnnotatedText):
+            # replace() makes a copy, so this never modifies a cached result.
+            return replace(self.annotate(text.text, props), location=text.location)
         props = dict(props or {})
         skip_cache = props.pop("skip_cache", False)
         if skip_cache or not self.cache_size:

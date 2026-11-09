@@ -87,6 +87,35 @@ Cached results are shared between callers, so don't modify an `AnnotatedText` th
 service returned. A new service should implement `_annotate()`, not `annotate()`, so
 that it is cached.
 
+## File formats
+
+[`renci_ner.formats`](src/renci_ner/formats/__init__.py) reads texts from files and
+writes annotated texts back out:
+
+```python
+from renci_ner.formats import open_text, reader_for_file, writer_for_format
+
+pipeline = Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm())
+with open_text("out.jsonl.gz", "w") as out:
+    # annotate() accepts an AnnotatedText and keeps its location.
+    texts = (pipeline.annotate(t) for t in reader_for_file("in.txt.gz").read())
+    writer_for_format("jsonl").write(texts, out)
+```
+
+* `.txt`: one text per line; blank lines are skipped. Writing emits only the text, and
+  raises `ValueError` for a text containing a line break (use JSONL for those).
+* `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
+  `location` from each line, so annotated output can be read back as input; its
+  annotations are not read back.
+
+A reader picks the format by suffix, and a trailing `.gz` is read through gzip
+(`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
+ignored. Each `AnnotatedText` a reader yields has a `location` of
+`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns
+and rows count every line, blank or not. The exception is a JSONL line that already
+has a `location`, such as annotated output read back in: it keeps that one, so it
+still points at the original input.
+
 ## Development
 
 This package uses [uv](https://github.com/astral-sh/uv) for Python packaging
