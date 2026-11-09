@@ -95,7 +95,16 @@ class JsonlFile(Format):
             for row, line in enumerate(f, start=1):
                 if not line.strip():
                     continue
-                data = json.loads(line)
+                where = f"{self.filename}, row {row}"
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON at {where}: {e}") from e
+                if not isinstance(data, dict) or not isinstance(data.get("text"), str):
+                    raise ValueError(
+                        f'Expected a JSON object with a string "text" at {where}, '
+                        f"got: {line.strip()[:100]}"
+                    )
                 yield AnnotatedText(
                     data["text"],
                     location=data.get("location")

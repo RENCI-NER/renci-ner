@@ -1,6 +1,7 @@
 import gzip
 import io
 import json
+import re
 
 import pytest
 
@@ -68,6 +69,16 @@ def test_jsonl_write_and_read(tmp_path):
     assert [t.text for t in texts] == ["The brain.", "bare"]
     assert texts[0].location == ["in.txt", "row=1", "text"]
     assert texts[1].location == [str(path), "row=3", "text"]
+
+
+@pytest.mark.parametrize(
+    "line", ['["a"]', '"text"', '{"txt": "a"}', '{"text": 1}', "{not json"]
+)
+def test_jsonl_bad_lines_name_file_and_row(tmp_path, line):
+    path = tmp_path / "bad.jsonl"
+    path.write_text(json.dumps({"text": "fine"}) + "\n" + line + "\n")
+    with pytest.raises(ValueError, match=re.escape(f"{path}, row 2")):
+        list(reader_for_file(str(path)).read())
 
 
 def test_gzip_by_suffix(tmp_path):
