@@ -168,8 +168,17 @@ class DelimitedFile(Format):
     def read(self) -> Iterator[AnnotatedText]:
         with self._open(newline="") as f:
             reader = csv.DictReader(f, dialect=self.dialect)
+            fieldnames = reader.fieldnames or []
+            # A column name that isn't in the file is almost always a typo; yielding
+            # nothing for it would look like a file with nothing to annotate.
+            missing = [c for c in self.columns_include if c not in fieldnames]
+            if missing:
+                raise ValueError(
+                    f"{self.filename} has no column(s) {missing}; its columns are "
+                    f"{fieldnames}"
+                )
             columns = self.columns_include or [
-                c for c in reader.fieldnames or [] if c not in self.columns_exclude
+                c for c in fieldnames if c not in self.columns_exclude
             ]
             for row, cells in enumerate(reader, start=1):
                 for column in columns:
