@@ -36,15 +36,22 @@ def annotated():
 
 def test_txt_round_trip(tmp_path):
     path = tmp_path / "in.txt"
-    path.write_text("The brain.\n\nThe heart.\n")
+    path.write_text("The brain.\n\nThe heart.\n  \n\n")
 
+    # Blank lines are skipped, but still counted in the row numbers.
     texts = list(TextFile(str(path)).read())
-    assert [t.text for t in texts] == ["The brain.", "", "The heart."]
-    assert texts[2].location == [str(path), "row=3", "text"]
+    assert [t.text for t in texts] == ["The brain.", "The heart."]
+    assert texts[1].location == [str(path), "row=3", "text"]
 
     out = io.StringIO()
     writer_for_format("txt").write(texts, out)
-    assert out.getvalue() == path.read_text()
+    assert out.getvalue() == "The brain.\nThe heart.\n"
+
+
+@pytest.mark.parametrize("text", ["Line one\nLine two", "Line one\rLine two"])
+def test_txt_refuses_line_breaks(text):
+    with pytest.raises(ValueError, match="line break"):
+        writer_for_format("txt").write([AnnotatedText(text)], io.StringIO())
 
 
 def test_jsonl_write_and_read(tmp_path):
