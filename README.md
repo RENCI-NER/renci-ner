@@ -102,14 +102,19 @@ with open_text("out.jsonl.gz", "w") as out:
     writer_for_format("jsonl").write(texts, out)
 ```
 
-* `.txt`: one text per line. Writing emits only the text.
+* `.txt`: one text per line; blank lines are skipped. Writing emits only the text, and
+  raises `ValueError` for a text containing a line break (use JSONL for those).
 * `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
   `location` from each line, so annotated output can be read back as input; its
   annotations are not read back.
 
-A reader picks the format by suffix, and a trailing `.gz` is read through gzip. Each
-`AnnotatedText` it yields has a `location` of `[filename, "row=N", column]`, where
-`column` is `"text"` for formats without columns.
+A reader picks the format by suffix, and a trailing `.gz` is read through gzip
+(`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
+ignored. Each `AnnotatedText` a reader yields has a `location` of
+`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns
+and rows count every line, blank or not. The exception is a JSONL line that already
+has a `location`, such as annotated output read back in: it keeps that one, so it
+still points at the original input.
 
 ## Development
 

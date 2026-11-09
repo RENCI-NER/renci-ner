@@ -59,7 +59,7 @@ a re-ranker. Both are Annotators themselves, so they nest.
 
 ### File formats (`src/renci_ner/formats/`)
 
-`reader_for_file(filename)` picks a `Format` by suffix (`.txt`, `.jsonl`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]`; `writer_for_format(name).write(texts, file)` writes them. JSONL writes `to_dict()` and reads back only text and location.
+`reader_for_file(filename)` picks a `Format` by suffix (`.txt`, `.jsonl`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]` (except that a JSONL line keeps its own `location` if it has one); `writer_for_format(name).write(texts, file)` writes them to a handle, e.g. from `open_text()`. JSONL writes `to_dict()` and reads back only text and location. TXT skips blank lines on reading and refuses texts with line breaks on writing.
 
 ### Key Patterns
 

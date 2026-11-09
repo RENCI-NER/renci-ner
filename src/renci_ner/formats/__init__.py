@@ -3,7 +3,9 @@ Readers and writers for AnnotatedText in plain files.
 
 A reader yields one AnnotatedText per unit of text (a line, a cell) with a `location`
 of `[filename, "row=N", column]`, where column is "text" for formats without columns.
-A writer takes AnnotatedTexts and a file handle. Files ending in .gz are gzipped.
+(A JSONL line that already has a location keeps it, so annotated output read back in
+still points at the original input.) A writer takes AnnotatedTexts and a file handle.
+Files ending in .gz are gzipped.
 """
 
 import gzip
