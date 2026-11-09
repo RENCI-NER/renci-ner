@@ -93,15 +93,12 @@ that it is cached.
 writes annotated texts back out:
 
 ```python
-from dataclasses import replace
-from renci_ner.formats import reader_for_file, writer_for_format
+from renci_ner.formats import open_text, reader_for_file, writer_for_format
 
-with open("out.jsonl", "w") as out:
-    texts = (
-        # annotate() takes a str, so carry each text's location over by hand.
-        replace(pipeline.annotate(t.text), location=t.location)
-        for t in reader_for_file("in.txt.gz").read()
-    )
+pipeline = Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm())
+with open_text("out.jsonl.gz", "w") as out:
+    # annotate() accepts an AnnotatedText and keeps its location.
+    texts = (pipeline.annotate(t) for t in reader_for_file("in.txt.gz").read())
     writer_for_format("jsonl").write(texts, out)
 ```
 
