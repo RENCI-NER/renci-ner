@@ -5,6 +5,7 @@ a few standard pipelines and write the results out.
     renci-ner --method biomegatron-sapbert -o out.csv input.csv
 """
 
+import contextlib
 import logging
 import sys
 from collections.abc import Iterable
@@ -32,6 +33,20 @@ logger = logging.getLogger(__name__)
 METHODS = ["biomegatron-sapbert", "biomegatron-nameres", "biomegatron-bagel"]
 # How many candidates each linker hands to Bagel.
 BAGEL_CANDIDATES = 10
+
+
+@contextlib.contextmanager
+def user_errors():
+    """
+    Report a ValueError as a one-line click error rather than a traceback. Use it only
+    around steps whose ValueErrors are about the user's input or settings (a bad input
+    line, a missing column or credentials), not around annotation, where a ValueError
+    (such as a JSONDecodeError from a service) is a bug worth a traceback.
+    """
+    try:
+        yield
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
 
 
 def build_pipeline(method: str, session=None, limit: int = 1) -> Annotator:
@@ -163,18 +178,21 @@ def main(
     """Annotate the texts in INPUT_FILES (txt, jsonl, csv or tsv; .gz is fine)."""
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
 
-    texts = read_texts(input_files, include_column, exclude_column)
+    with user_errors():
+        texts = read_texts(input_files, include_column, exclude_column)
     logger.info(f"Read {len(texts)} texts from {len(input_files)} file(s).")
 
-    pipeline = build_pipeline(method, make_session(retries), limit)
+    with user_errors():
+        pipeline = build_pipeline(method, make_session(retries), limit)
     annotated = annotate_texts(pipeline, texts, progress=not no_progress)
 
     writer = writer_for_format(output_format)
-    if output == "-":
-        writer.write(annotated, sys.stdout)
-    else:
-        with open_text(output, "wt", newline="") as f:
-            writer.write(annotated, f)
+    with user_errors():
+        if output == "-":
+            writer.write(annotated, sys.stdout)
+        else:
+            with open_text(output, "wt", newline="") as f:
+                writer.write(annotated, f)
         logger.info(f"Wrote {len(annotated)} annotated texts to {output}.")
 
 

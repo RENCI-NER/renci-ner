@@ -91,6 +91,25 @@ def test_column_options_need_delimited_input(tmp_path, stub_pipeline):
     assert "only apply to CSV/TSV" in result.output
 
 
+@pytest.mark.parametrize(
+    "name, content, args, message",
+    [
+        ("in.csv", "id,text\n1,brain\n", ["-c", "nope"], "no column(s) ['nope']"),
+        ("in.jsonl", '["not an object"]\n', [], "row 1"),
+        ("in.csv", 'text\n"two\nlines"\n', ["-f", "txt"], "line break"),
+    ],
+)
+def test_bad_input_is_a_clean_error(
+    tmp_path, stub_pipeline, name, content, args, message
+):
+    path = tmp_path / name
+    path.write_text(content)
+    result = CliRunner().invoke(cli.main, [*args, "--no-progress", str(path)])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, SystemExit), result.exception
+    assert message in result.output
+
+
 def test_live_pmid():
     """Run the default pipeline on a real abstract; needs BioMegatron."""
     try:
@@ -133,6 +152,8 @@ def test_build_pipeline_wiring(method, step_types, last_props, monkeypatch):
 
 
 def test_bagel_without_credentials_is_a_clean_error(tmp_path, monkeypatch):
+    # Credentials can also come from the nearest .env, so run away from any.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("BAGEL_USERNAME", raising=False)
     monkeypatch.delenv("BAGEL_PASSWORD", raising=False)
     monkeypatch.setattr(
