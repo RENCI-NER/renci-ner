@@ -71,7 +71,7 @@ a re-ranker. Both are Annotators themselves, so they nest.
 - `to_dict()` on all core classes gives JSON-serializable dicts tagged with `@type`
 - Services fetch their version from `/openapi.json` at the service URL
 - Caching: `Annotator.annotate()` caches per (text, props) in a per-instance LRU and services implement `_annotate(text, props)`; NodeNorm caches per (identifier, conflation flags); `skip_cache: True` bypasses. Cached results are shared, so never modify an AnnotatedText a service returned
-- Tests use `pytest.skip()` when remote services are unavailable
+- Tests use `pytest.skip()` when a remote service CI can't reach (BioMegatron, Bagel) is unavailable. The SAPBERT test fails instead on purpose, so CI catches `sap-qdrant` being down; don't make it skip
 - Python 3.11+ required (uses `typing.Self`)
 
 ## Linting
