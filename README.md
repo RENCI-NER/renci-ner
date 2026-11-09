@@ -109,8 +109,25 @@ with open_text("out.jsonl.gz", "w") as out:
   annotations are not read back.
 * `.csv`, `.tsv`: one text per non-empty cell, in every column or only some
   (`reader_for_file("in.csv", columns_include=["description"])`, or
-  `columns_exclude`). Writing puts a row's input cells first, then one output row per
-  annotation. Open CSV output with `open_text(filename, "w", newline="")`.
+  `columns_exclude`). Before each row's texts, the reader yields a `Row` holding every
+  cell of that row, so the writer can put back the columns and rows that weren't
+  annotated. A `Row` isn't a text: annotate only the `AnnotatedText`s and pass the rest
+  on to the writer, which the TXT and JSONL writers then skip:
+
+  ```python
+  from renci_ner.core import AnnotatedText
+
+  items = reader_for_file("in.csv", columns_exclude=["id"]).read()
+  annotated = (
+      pipeline.annotate(t) if isinstance(t, AnnotatedText) else t for t in items
+  )
+  with open_text("out.csv", "w", newline="") as out:
+      writer_for_format("csv").write(annotated, out)
+  ```
+
+  The output has every input row and column, then `annotation_row` (the input's data
+  row number) and one output row per annotation; a cell or row with nothing annotated
+  still gets one row.
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is

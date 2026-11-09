@@ -60,7 +60,7 @@ a re-ranker. Both are Annotators themselves, so they nest.
 ### File formats (`src/renci_ner/formats/`)
 
 `reader_for_file(filename, **kwargs)` picks a `Format` by suffix (`.txt`, `.jsonl`, `.csv`, `.tsv`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]` (except that a JSONL line keeps its own `location` if it has one); `writer_for_format(name).write(texts, file)` writes them to a handle, e.g. from `open_text()`. JSONL writes `to_dict()` and reads back only text and location. TXT skips blank lines on reading and refuses texts with line breaks on writing.
-`DelimitedFile` reads one text per non-empty cell (`columns_include`/`columns_exclude`, passed through `reader_for_file()`) and writes the row's input cells plus one row per annotation, using `location[-2]`/`location[-1]` as row and column.
+`DelimitedFile` reads one text per non-empty cell (`columns_include`/`columns_exclude`, passed through `reader_for_file()`), preceded by a `Row(location=[filename, "row=N"], cells)` with every cell of that row. Callers annotate only `AnnotatedText`s and pass `Row`s through (`annotate()` raises `TypeError` on one); the TXT/JSONL writers skip them. The CSV/TSV writer joins texts to rows by `location[:-1]` and writes each row's cells, `annotation_row`, then one row per annotation.
 
 ### Key Patterns
 
