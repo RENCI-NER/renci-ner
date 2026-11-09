@@ -140,3 +140,22 @@ def test_pipeline_rejects_bad_steps():
         Pipeline(Upper())
     with pytest.raises(TypeError):
         Pipeline(StubNER(), "nodenorm")
+
+
+def test_annotate_keeps_location_of_annotated_text():
+    class Echo(Annotator):
+        def _annotate(self, text, props):
+            return AnnotatedText(text, [])
+
+    linker = StubLinker("L")
+    pipeline = Pipeline(Echo(), linker)
+    location = ["in.txt", "row=1", "text"]
+    first = pipeline.annotate(AnnotatedText("brain", location=location))
+    assert first.text == "brain"
+    assert first.location == location
+
+    # The cached result is shared, so the location must not leak into a later call.
+    assert pipeline.annotate("brain").location == []
+    other = pipeline.annotate(AnnotatedText("brain", location=["x", "row=2", "text"]))
+    assert other.location == ["x", "row=2", "text"]
+    assert first.location == location
