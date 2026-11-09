@@ -57,7 +57,7 @@ def test_txt_refuses_line_breaks(text):
 
 def test_jsonl_write_and_read(tmp_path):
     out = io.StringIO()
-    JsonlFile("-").write([annotated()], out)
+    JsonlFile().write([annotated()], out)
     (line,) = out.getvalue().splitlines()
     data = json.loads(line)
     assert data["@type"] == "renci_ner:AnnotatedText"
@@ -122,3 +122,8 @@ def test_unknown_formats():
         reader_for_file("data.xlsx")
     with pytest.raises(ValueError):
         writer_for_format("xlsx")
+
+
+def test_writer_cannot_read():
+    with pytest.raises(ValueError, match="not given a file"):
+        list(writer_for_format("txt").read())

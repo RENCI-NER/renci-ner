@@ -42,10 +42,20 @@ def format_suffix(filename: str) -> str:
 
 
 class Format:
-    """A file format that can read and/or write AnnotatedTexts."""
+    """
+    A file format that can read and/or write AnnotatedTexts. A reader is constructed
+    with the file it reads; a writer needs no filename, since write() takes an open
+    file handle (see open_text()).
+    """
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str | None = None):
         self.filename = filename
+
+    def _open(self):
+        """Open this reader's file; readers use this rather than open_text() directly."""
+        if self.filename is None:
+            raise ValueError(f"{type(self).__name__} was not given a file to read")
+        return open_text(self.filename)
 
     def read(self) -> Iterator[AnnotatedText]:
         raise NotImplementedError
@@ -61,7 +71,7 @@ class TextFile(Format):
     """
 
     def read(self) -> Iterator[AnnotatedText]:
-        with open_text(self.filename) as f:
+        with self._open() as f:
             for row, line in enumerate(f, start=1):
                 text = line.rstrip("\n")
                 if not text.strip():
@@ -91,7 +101,7 @@ class JsonlFile(Format):
     """
 
     def read(self) -> Iterator[AnnotatedText]:
-        with open_text(self.filename) as f:
+        with self._open() as f:
             for row, line in enumerate(f, start=1):
                 if not line.strip():
                     continue
@@ -119,19 +129,21 @@ class JsonlFile(Format):
 FORMATS: dict[str, type[Format]] = {".txt": TextFile, ".jsonl": JsonlFile}
 
 
-def reader_for_file(filename: str, **kwargs) -> Format:
-    """Pick a Format for a filename by its suffix (ignoring .gz); kwargs go to its constructor."""
-    suffix = format_suffix(filename)
+def _format_class(suffix: str, what: str) -> type[Format]:
+    """Look up a Format by suffix (e.g. ".txt"); `what` describes the request for errors."""
     if suffix not in FORMATS:
-        raise ValueError(
-            f"Don't know how to read {filename}: expected one of {sorted(FORMATS)}"
-        )
-    return FORMATS[suffix](filename, **kwargs)
+        raise ValueError(f"{what}: expected one of {sorted(FORMATS)}")
+    return FORMATS[suffix]
 
 
-def writer_for_format(name: str, filename: str = "-", **kwargs) -> Format:
-    """Pick a Format by name ("txt", "jsonl", ...); the filename is only informational."""
+def reader_for_file(filename: str) -> Format:
+    """Pick a Format to read a file by its suffix (ignoring .gz)."""
+    return _format_class(format_suffix(filename), f"Don't know how to read {filename}")(
+        filename
+    )
+
+
+def writer_for_format(name: str) -> Format:
+    """Pick a Format to write with by name ("txt", "jsonl", ...)."""
     suffix = "." + name.lower().lstrip(".")
-    if suffix not in FORMATS:
-        raise ValueError(f"Unknown format {name!r}: expected one of {sorted(FORMATS)}")
-    return FORMATS[suffix](filename, **kwargs)
+    return _format_class(suffix, f"Unknown format {name!r}")()
