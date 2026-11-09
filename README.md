@@ -48,7 +48,94 @@ $ uv run renci-ner --method biomegatron-bagel -f jsonl abstracts.txt > out.jsonl
 CSV/TSV output has the input row's cells followed by one row per annotation
 (`annotation_text`, `annotation_id`, `annotation_type`, offsets, provenance);
 JSONL output is one `AnnotatedText.to_dict()` per line. See `renci-ner --help`
-for the options. Bagel needs `BAGEL_USERNAME` and `BAGEL_PASSWORD` in the environment.
+for the options. Bagel needs `BAGEL_USERNAME` and `BAGEL_PASSWORD` (see
+[Configuration](#configuration)).
+
+## Configuration
+
+Settings are read from the environment or from a `.env` file in the current directory
+(or the nearest parent directory that has one); the environment wins if both set a
+variable. Copy [`env.default`](env.default) to `.env` and fill it in:
+
+* `BAGEL_USERNAME` and `BAGEL_PASSWORD`: credentials for Bagel, which needs them
+  (`BagelAnnotator()` raises `ValueError` without them). They can also be passed to
+  the constructor as `username` and `password`.
+* `BIOMEGATRON_URL`, `NAMERES_URL`, `SAPBERT_URL`, `NODENORM_URL` and `BAGEL_URL`:
+  use another instance of a service instead of the one hosted at RENCI. A URL passed
+  to a service's constructor overrides these. Provenance records the URL actually used.
+
+`.env` is gitignored, so credentials in it stay out of the repository.
+
+## Errors and retries
+
+Some texts repeatably get an HTTP 403 from the RENCI ingress. Rather than abort a whole
+batch, every service logs the text and request at `WARNING` (so they can be reported)
+and returns an empty result for that call: no annotations, or no NodeNorm results. Any
+other error status raises `requests.HTTPError`.
+
+By default, services make each request once. For long batches, pass a retrying session,
+which retries GET and POST requests on 500, 502, 503 and 504 with exponential backoff:
+
+```python
+from renci_ner.utils import make_session
+
+session = make_session(retries=10)
+nameres = NameRes(requests_session=session)
+```
+
+## Caching
+
+Results are cached in memory, per service instance, so annotating the same text again
+(or running a pipeline over repeated texts) doesn't repeat the HTTP calls:
+
+* Every `Annotator`, including `Pipeline` and `MultiAnnotator`, caches `annotate()`
+  results per text and props, in an LRU of `cache_size` entries (default 10,000; set
+  it to 0 on a class or instance to turn caching off).
+* NodeNorm caches each identifier's result, separately for each set of conflation
+  flags, and only asks for identifiers it hasn't seen.
+* Bagel caches its answer for each span and set of candidates.
+
+Pass `skip_cache: True` in a call's props to bypass the caches for that call. An empty
+result from an HTTP 403 is cached like any other annotator result, so use `skip_cache`
+to try such a text again; NodeNorm doesn't cache identifiers that got a 403.
+
+Cached results are shared between callers, so don't modify an `AnnotatedText` that a
+service returned. A new service should implement `_annotate()`, not `annotate()`, so
+that it is cached.
+
+## File formats
+
+[`renci_ner.formats`](src/renci_ner/formats/__init__.py) reads texts from files and
+writes annotated texts back out:
+
+```python
+from renci_ner.formats import open_text, reader_for_file, writer_for_format
+
+pipeline = Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm())
+with open_text("out.jsonl.gz", "w") as out:
+    # annotate() accepts an AnnotatedText and keeps its location.
+    texts = (pipeline.annotate(t) for t in reader_for_file("in.txt.gz").read())
+    writer_for_format("jsonl").write(texts, out)
+```
+
+* `.txt`: one text per line; blank lines are skipped. Writing emits only the text, and
+  raises `ValueError` for a text containing a line break (use JSONL for those).
+* `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
+  `location` from each line, so annotated output can be read back as input; its
+  annotations are not read back.
+* `.csv`, `.tsv`: one text per non-empty cell, in every column or only some
+  (`reader_for_file("in.csv", columns_include=["description"])`, or
+  `columns_exclude`). Writing puts a row's input cells first, then one output row per
+  annotation. Open CSV output with `open_text(filename, "w", newline="")`.
+
+A reader picks the format by suffix, and a trailing `.gz` is read through gzip
+(`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
+ignored. Each `AnnotatedText` a reader yields has a `location` of
+`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns.
+Rows count every line of a TXT or JSONL file, blank or not, and every data row of a CSV
+or TSV file, not counting the header. The exception is a JSONL line that already
+has a `location`, such as annotated output read back in: it keeps that one, so it
+still points at the original input.
 
 ## Development
 
@@ -179,7 +266,10 @@ properties after it has been changed into a `NormalizedAnnotation`.
 * `label` (str): The label for the annotation.
 * `type` (str): The type of the annotation.
 * `start` (int): The start index of the annotation.
-* `end` (int): The end index of the annotation.
+* `end` (int): The end index of the annotation. `start` and `end` are offsets into
+  the `AnnotatedText`'s full text, for this annotation and for every annotation
+  in its `based_on` chain; `reannotate()` moves the offsets an annotator returns
+  (relative to the annotation text it was given) back to the full text.
 * `provenance` (`AnnotationProvenance`): The provenance for this annotation.
   The `provenances` property provides a list of all the provenances
   that have been used to create this annotation by reading them from the `based_on` list.
@@ -230,7 +320,8 @@ A transformer transforms an AnnotatedText into another AnnotatedText.
 
 e.g. NodeNorm for normalizing IDs; Bagel for choosing among the linked candidates at
 each span (an annotation is a candidate if it is a `NormalizedAnnotation`; spans with
-no candidates pass through unchanged).
+no candidates, or whose candidates Bagel all rejects, pass through unchanged). A CURIE
+found by several linkers is offered once, credited to the first linker in `based_on`.
 
 ### Pipeline
 

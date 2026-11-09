@@ -103,6 +103,14 @@ def test_with_transform():
     # drop it before comparing everything else.
     assert isinstance(result_nodenorm.annotations[0].props.pop("ic"), float)
 
+    # The type list grows with the Biolink model, so only check that it leads with the
+    # Gene type and, with gene/protein conflation, includes the Protein type. The
+    # based_on annotation's types are still compared exactly below: they must not have
+    # been changed by NodeNorm.
+    types = result_nodenorm.annotations[0].props.pop("types")
+    assert types[0] == "biolink:Gene"
+    assert "biolink:Protein" in types
+
     assert result_nodenorm == AnnotatedText(
         "What does actin do?",
         [
@@ -178,23 +186,6 @@ def test_with_transform():
                     "highlighting": {},
                     "taxa": [
                         "NCBITaxon:9606",
-                    ],
-                    "types": [
-                        "biolink:Gene",
-                        "biolink:GeneOrGeneProduct",
-                        "biolink:GenomicEntity",
-                        "biolink:ChemicalEntityOrGeneOrGeneProduct",
-                        "biolink:PhysicalEssence",
-                        "biolink:OntologyClass",
-                        "biolink:BiologicalEntity",
-                        "biolink:ThingWithTaxon",
-                        "biolink:NamedThing",
-                        "biolink:PhysicalEssenceOrOccurrent",
-                        "biolink:MacromolecularMachineMixin",
-                        "biolink:Protein",
-                        "biolink:GeneProductMixin",
-                        "biolink:Polypeptide",
-                        "biolink:ChemicalEntityOrProteinOrPolypeptide",
                     ],
                 },
             )

@@ -8,7 +8,6 @@ a few standard pipelines and write the results out.
 import logging
 import sys
 from collections.abc import Iterable
-from dataclasses import replace
 
 import click
 from tqdm import tqdm
@@ -96,10 +95,7 @@ def annotate_texts(
     pipeline: Annotator, texts: list[AnnotatedText], progress: bool = True
 ) -> list[AnnotatedText]:
     """Annotate each text, keeping its location; shows a progress bar on stderr."""
-    return [
-        replace(pipeline.annotate(text.text), location=text.location)
-        for text in tqdm(texts, disable=not progress)
-    ]
+    return [pipeline.annotate(text) for text in tqdm(texts, disable=not progress)]
 
 
 @click.command()
@@ -173,7 +169,7 @@ def main(
     pipeline = build_pipeline(method, make_session(retries), limit)
     annotated = annotate_texts(pipeline, texts, progress=not no_progress)
 
-    writer = writer_for_format(output_format, output)
+    writer = writer_for_format(output_format)
     if output == "-":
         writer.write(annotated, sys.stdout)
     else:

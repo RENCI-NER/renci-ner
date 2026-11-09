@@ -58,23 +58,24 @@ a re-ranker. Both are Annotators themselves, so they nest.
 
 **Transformers**:
 - **NodeNorm** (`services/normalization/`) — normalizes identifiers to preferred CURIEs via Translator Node Normalizer
-- **BagelAnnotator** (`services/linkers/`) — LLM-based re-ranker; picks among the `NormalizedAnnotation` candidates at each span; requires `BAGEL_USERNAME`/`BAGEL_PASSWORD` env vars
+- **BagelAnnotator** (`services/linkers/`) — LLM-based re-ranker; picks among the `NormalizedAnnotation` candidates at each span; requires `BAGEL_USERNAME`/`BAGEL_PASSWORD` settings
 
 ### File formats (`src/renci_ner/formats/`)
 
-`reader_for_file(filename)` picks a `Format` by suffix (`.txt`, `.jsonl`, `.csv`, `.tsv`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]`; `writer_for_format(name).write(texts, file)` writes them. JSONL writes `to_dict()` and reads back only text and location.
-`DelimitedFile` reads one text per non-empty cell (`columns_include`/`columns_exclude`) and writes the row's input cells plus one row per annotation, using `location[-2]`/`location[-1]` as row and column.
+`reader_for_file(filename, **kwargs)` picks a `Format` by suffix (`.txt`, `.jsonl`, `.csv`, `.tsv`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]` (except that a JSONL line keeps its own `location` if it has one); `writer_for_format(name).write(texts, file)` writes them to a handle, e.g. from `open_text()`. JSONL writes `to_dict()` and reads back only text and location. TXT skips blank lines on reading and refuses texts with line breaks on writing.
+`DelimitedFile` reads one text per non-empty cell (`columns_include`/`columns_exclude`, passed through `reader_for_file()`) and writes the row's input cells plus one row per annotation, using `location[-2]`/`location[-1]` as row and column.
 
 ### Key Patterns
 
 - All services call external HTTP APIs with a default 120s timeout
 - `renci_ner.utils`: `make_session(retries)` gives a retrying session to pass as `requests_session`; `forbidden(response, text, data)` logs HTTP 403s (RENCI ingress) so services return an empty result instead of aborting, and raises on any other error
+- Settings (Bagel credentials, `*_URL` overrides for each service) come from `renci_ner.config.get_setting()`: the environment, then the nearest `.env` (template: `env.default`). It never loads `.env` into `os.environ`, since this is a library. Read settings at construction time, not import time
 - `reannotate()` preserves/adjusts start/end offsets through the chain; 0 results keeps original annotation
-- `AnnotatedText.location` is an opaque passthrough; services build results with `dataclasses.replace()` so it survives
+- `AnnotatedText.location` is an opaque passthrough; services build results with `dataclasses.replace()` so it survives, and `annotate()` accepts an `AnnotatedText` and copies its location onto the (cached, shared) result
 - `to_dict()` on all core classes gives JSON-serializable dicts tagged with `@type`
 - Services fetch their version from `/openapi.json` at the service URL
 - Caching: `Annotator.annotate()` caches per (text, props) in a per-instance LRU and services implement `_annotate(text, props)`; NodeNorm caches per (identifier, conflation flags); `skip_cache: True` bypasses. Cached results are shared, so never modify an AnnotatedText a service returned
-- Tests use `pytest.skip()` when remote services are unavailable
+- Tests use `pytest.skip()` when a remote service CI can't reach (BioMegatron, Bagel) is unavailable. The SAPBERT test fails instead on purpose, so CI catches `sap-qdrant` being down; don't make it skip
 - Python 3.11+ required (uses `typing.Self`)
 
 ## Linting
