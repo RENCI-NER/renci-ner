@@ -241,3 +241,23 @@ def test_repeated_include_column_is_read_once(tmp_path):
     path.write_text(CSV)
     reader = DelimitedFile(str(path), columns_include=["description", "description"])
     assert [t.text for t in texts_of(reader.read())] == ["The brain is an organ."]
+
+
+def test_texts_with_other_location_shapes_get_their_own_rows():
+    texts = [
+        # Two elements: not [file, "row=N", column], so not one row with two columns.
+        AnnotatedText("brain", location=["a.txt", "row=1"]),
+        AnnotatedText("heart", location=["a.txt", "row=2"]),
+        # A JSONL location can hold anything, including values that can't be hashed.
+        AnnotatedText("lung", location=["f", ["x", 1], "col"]),
+        AnnotatedText("liver", location=[{"doc": 1}, "row=1", "text"]),
+    ]
+    out = io.StringIO()
+    writer_for_format("csv").write(texts, out)
+    rows = list(csv.DictReader(io.StringIO(out.getvalue())))
+    assert [(r["text"], r["annotation_row"]) for r in rows] == [
+        ("brain", ""),
+        ("heart", ""),
+        ("lung", ""),
+        ("liver", ""),
+    ]

@@ -246,10 +246,22 @@ class DelimitedFile(Format):
 
     @staticmethod
     def _row_and_column(text: AnnotatedText) -> tuple:
-        """Where a text goes: everything but the last location element is the row."""
-        if len(text.location) >= 2:
-            return tuple(text.location[:-1]), text.location[-1]
-        return (id(text),), "text"
+        """
+        Where a text goes: a (row key, column) pair. Only a location shaped like a
+        reader's, [filename, "row=N", column] in strings, joins the other texts of
+        that row. Anything else (from JSONL, which keeps whatever location a line
+        has, or built by hand) gets a row of its own in a "text" column: guessing
+        that some other shape ends in a column could merge unrelated texts into one
+        row, and its elements might not even be hashable.
+        """
+        location = text.location
+        if (
+            len(location) == 3
+            and all(isinstance(part, str) for part in location)
+            and location[1].startswith("row=")
+        ):
+            return (location[0], location[1]), location[2]
+        return object(), "text"
 
     def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
         items = list(texts)
@@ -304,10 +316,9 @@ class DelimitedFile(Format):
 
     @staticmethod
     def _row_number(key: tuple) -> str:
-        """N from a row key ending in "row=N", or "" for a text without a location."""
-        last = key[-1]
-        if isinstance(last, str) and last.startswith("row="):
-            return last.removeprefix("row=")
+        """N from a row key ending in "row=N", or "" for a text with a row of its own."""
+        if isinstance(key, tuple) and key[-1].startswith("row="):
+            return key[-1].removeprefix("row=")
         return ""
 
 
