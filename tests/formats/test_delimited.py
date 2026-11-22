@@ -261,3 +261,48 @@ def test_texts_with_other_location_shapes_get_their_own_rows():
         ("lung", ""),
         ("liver", ""),
     ]
+
+
+def test_rewriting_annotated_output_renames_clashing_columns(tmp_path):
+    first = tmp_path / "first.csv"
+    first.write_text(CSV)
+    out = io.StringIO()
+    writer_for_format("csv").write(
+        reader_for_file(str(first), columns_include=["name"]).read(), out
+    )
+
+    # Read that output back in and write it again, annotating its name column.
+    second = tmp_path / "second.csv"
+    second.write_text(out.getvalue())
+    out = io.StringIO()
+    writer_for_format("csv").write(
+        reader_for_file(str(second), columns_include=["name"]).read(), out
+    )
+    reader = csv.reader(io.StringIO(out.getvalue()))
+    header = next(reader)
+    assert len(header) == len(set(header))
+    assert header[:5] == [
+        "id",
+        "name",
+        "description",
+        "input_annotation_row",
+        "input_annotation_column",
+    ]
+    rows = list(csv.DictReader(io.StringIO(out.getvalue())))
+    # The first run's values stay in their renamed columns, and this run's row
+    # numbers count the rows of second.csv.
+    assert [r["input_annotation_row"] for r in rows] == ["1", "2", "3"]
+    assert [r["annotation_row"] for r in rows] == ["1", "2", "3"]
+    assert rows[0]["input_annotation_column"] == "name"
+    assert rows[0]["annotation_column"] == "name"
+
+
+def test_annotation_column_names_the_renamed_column():
+    out = io.StringIO()
+    text = AnnotatedText("brain", location=["in.csv", "row=1", "annotation_text"])
+    writer_for_format("csv").write(
+        [Row(["in.csv", "row=1"], {"annotation_text": "brain"}), text], out
+    )
+    (row,) = csv.DictReader(io.StringIO(out.getvalue()))
+    assert row["input_annotation_text"] == "brain"
+    assert row["annotation_column"] == "input_annotation_text"

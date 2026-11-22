@@ -286,16 +286,23 @@ class DelimitedFile(Format):
         for row_cells in cells.values():
             columns += [c for c in row_cells if c not in columns]
 
+        names = self._output_names(columns)
         writer = csv.DictWriter(
-            file, fieldnames=columns + ANNOTATION_COLUMNS, dialect=self.dialect
+            file,
+            fieldnames=list(names.values()) + ANNOTATION_COLUMNS,
+            dialect=self.dialect,
         )
         writer.writeheader()
         for key, row_texts in texts_by_row.items():
-            row_cells = cells.get(key, {}) | {"annotation_row": self._row_number(key)}
+            row_cells = {names[c]: v for c, v in cells.get(key, {}).items()} | {
+                "annotation_row": self._row_number(key)
+            }
             if not row_texts:
                 writer.writerow(row_cells)
             for column, text in row_texts:
-                text_cells = row_cells | {"annotation_column": column}
+                text_cells = row_cells | {
+                    "annotation_column": names.get(column, column)
+                }
                 if not text.annotations:
                     writer.writerow(text_cells)
                 for ann in text.annotations:
@@ -313,6 +320,25 @@ class DelimitedFile(Format):
                             ),
                         }
                     )
+
+    @staticmethod
+    def _output_names(columns: list[str]) -> dict[str, str]:
+        """
+        The output name of each input column. An input column named like one of
+        ANNOTATION_COLUMNS (as in this writer's own output, read back in) is prefixed
+        with "input_" until the name is free; otherwise the header would repeat the
+        name and this run's values would overwrite the input's.
+        """
+        taken = set(columns) | set(ANNOTATION_COLUMNS)
+        names = {}
+        for column in columns:
+            name = column
+            if name in ANNOTATION_COLUMNS:
+                while name in taken:
+                    name = "input_" + name
+                taken.add(name)
+            names[column] = name
+        return names
 
     @staticmethod
     def _row_number(key: tuple) -> str:
