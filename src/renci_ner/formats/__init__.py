@@ -186,16 +186,34 @@ class DelimitedFile(Format):
         super().__init__(filename)
         is_tsv = filename is not None and format_suffix(filename) == ".tsv"
         self.dialect = dialect or ("excel-tab" if is_tsv else "excel")
-        self.columns_include = list(columns_include or [])
+        if columns_include and columns_exclude:
+            raise ValueError(
+                "Pass columns_include or columns_exclude, not both: it isn't clear "
+                "whether an included column that is also excluded should be read"
+            )
+        # A column named twice would be read, annotated and written twice.
+        self.columns_include = list(dict.fromkeys(columns_include or []))
         self.columns_exclude = set(columns_exclude or [])
 
     def read(self) -> Iterator[AnnotatedText | Row]:
         with self._open(newline="") as f:
             reader = csv.DictReader(f, dialect=self.dialect)
             fieldnames = reader.fieldnames or []
-            # A column name that isn't in the file is almost always a typo; yielding
-            # nothing for it would look like a file with nothing to annotate.
-            missing = [c for c in self.columns_include if c not in fieldnames]
+            # DictReader keeps only the last cell of a repeated column name, so the
+            # others would vanish from both the texts and the output.
+            repeated = sorted({c for c in fieldnames if fieldnames.count(c) > 1})
+            if repeated:
+                raise ValueError(
+                    f"{self.filename} has more than one column named {repeated}; "
+                    f"rename them so no cells are lost"
+                )
+            # A column name that isn't in the file is almost always a typo: an
+            # include would yield nothing, and an exclude would silently do nothing.
+            missing = [
+                c
+                for c in [*self.columns_include, *sorted(self.columns_exclude)]
+                if c not in fieldnames
+            ]
             if missing:
                 raise ValueError(
                     f"{self.filename} has no column(s) {missing}; its columns are "
@@ -205,6 +223,15 @@ class DelimitedFile(Format):
                 c for c in fieldnames if c not in self.columns_exclude
             ]
             for row, cells in enumerate(reader, start=1):
+                # Cells beyond the header have no column to go in, so they would be
+                # neither annotated nor written. Blank ones (trailing delimiters) are
+                # harmless; anything else is refused rather than dropped.
+                extra = [c for c in cells.get(None) or [] if c.strip()]
+                if extra:
+                    raise ValueError(
+                        f"{self.filename} row {row} has more cells than the header "
+                        f"has columns ({fieldnames}); the extra cells are {extra}"
+                    )
                 # A short row's missing cells come back as None; make them blank.
                 yield Row(
                     [self.filename, f"row={row}"],

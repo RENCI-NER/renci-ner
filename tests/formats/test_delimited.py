@@ -200,3 +200,44 @@ def test_gzipped_csv(tmp_path):
     reader = reader_for_file(str(path), columns_exclude=["id"])
     assert isinstance(reader, DelimitedFile)
     assert [t.text for t in texts_of(reader.read())] == ["brain"]
+
+
+def test_extra_cells_are_an_error(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text("id,text\n1,brain,extra note\n")
+    with pytest.raises(ValueError, match="row 1.*extra note"):
+        list(reader_for_file(str(path)).read())
+
+
+def test_blank_extra_cells_are_ignored(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text("id,text\n1,brain,,\n")
+    row, text = reader_for_file(str(path), columns_exclude=["id"]).read()
+    assert row.cells == {"id": "1", "text": "brain"}
+    assert text.text == "brain"
+
+
+def test_duplicate_header_names_are_an_error(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text("id,note,note\n1,a,b\n")
+    with pytest.raises(ValueError, match="note"):
+        list(reader_for_file(str(path)).read())
+
+
+def test_include_and_exclude_together_is_an_error():
+    with pytest.raises(ValueError, match="columns_include"):
+        DelimitedFile("in.csv", columns_include=["name"], columns_exclude=["id"])
+
+
+def test_unknown_exclude_column_is_an_error(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text(CSV)
+    with pytest.raises(ValueError, match="ID"):
+        list(DelimitedFile(str(path), columns_exclude=["ID"]).read())
+
+
+def test_repeated_include_column_is_read_once(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text(CSV)
+    reader = DelimitedFile(str(path), columns_include=["description", "description"])
+    assert [t.text for t in texts_of(reader.read())] == ["The brain is an organ."]
