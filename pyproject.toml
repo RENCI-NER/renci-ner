@@ -52,3 +52,8 @@ ignore = [
 
 fixable = ["ALL"]
 unfixable = []
+
+[tool.pytest.ini_options]
+# A test marked xfail that starts passing fails the run, so a temporary xfail (such as
+# one for a service outage) can't outlive the problem it was added for.
+xfail_strict = true
