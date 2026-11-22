@@ -127,7 +127,12 @@ with open_text("out.jsonl.gz", "w") as out:
 
   The output has every input row and column, then `annotation_row` (the input's data
   row number) and one output row per annotation; a cell or row with nothing annotated
-  still gets one row.
+  still gets one row. An input column whose name clashes with the annotation columns,
+  as when annotated output is annotated again, is written as `input_<name>`. The reader
+  refuses a header that repeats a column name, and a row with more (non-blank) cells
+  than the header, rather than lose cells. The writer holds everything it is given in
+  memory until the end, since the header has to list every column first
+  ([#30](https://github.com/RENCI-NER/renci-ner/issues/30) is about streaming).
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is

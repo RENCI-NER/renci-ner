@@ -169,11 +169,23 @@ class DelimitedFile(Format):
     each data row, a Row with all its cells, then one AnnotatedText per non-empty cell
     in the chosen columns, with location=[filename, "row=N", column].
 
+    Reading refuses a header that repeats a name, and a row with non-blank cells beyond
+    the header, rather than lose those cells.
+
     Writing puts every cell of a row first (from its Row), then `annotation_row` (N) and
     one output row per annotation. A text with no annotations still gets one row, and so
     does a row with no texts, so a file can be read, annotated and written back with all
-    its rows and columns. Texts without a Row (from TXT or JSONL input, or built by hand)
-    get a row made from their own text, in a column named by their location.
+    its rows and columns. An input column named like one of ANNOTATION_COLUMNS (as when
+    this output is annotated again) is written as "input_<name>". Texts without a Row
+    (from TXT or JSONL input, or built by hand) get a row made from their own text: texts
+    with a reader's location, [filename, "row=N", column], share a row per filename and
+    N, with a column named by the location; any other text gets a row of its own, in a
+    "text" column.
+
+    The writer holds every item in memory until the end, because the header must list
+    every column before the first row is written, and items from several inputs (a TXT
+    and a CSV, or CSVs with different headers) may add columns at any point. See #30
+    for ways to stream large inputs.
     """
 
     def __init__(
@@ -264,6 +276,7 @@ class DelimitedFile(Format):
         return object(), "text"
 
     def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
+        # Held in full so the header can list every column; see the class docstring.
         items = list(texts)
         # Every row, keyed by its location minus the column, in order of first appearance,
         # with its cells and the texts written against it.
