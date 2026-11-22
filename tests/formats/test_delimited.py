@@ -306,3 +306,53 @@ def test_annotation_column_names_the_renamed_column():
     (row,) = csv.DictReader(io.StringIO(out.getvalue()))
     assert row["input_annotation_text"] == "brain"
     assert row["annotation_column"] == "input_annotation_text"
+
+
+def test_rows_are_written_as_they_arrive(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text(CSV)
+
+    def items_then_failure():
+        for item in reader_for_file(str(path), columns_exclude=["id"]).read():
+            if isinstance(item, Row) and item.location[1] == "row=3":
+                raise RuntimeError("annotator went away")
+            yield item
+
+    out = io.StringIO()
+    with pytest.raises(RuntimeError):
+        writer_for_format("csv").write(items_then_failure(), out)
+    # Row 2's arrival showed row 1 was complete, so row 1 is already written. Row 2
+    # would have been written when row 3 arrived, which is where the failure struck.
+    rows = list(csv.DictReader(io.StringIO(out.getvalue())))
+    assert [r["annotation_row"] for r in rows] == ["1", "1"]
+
+
+def test_later_row_with_new_columns_is_an_error():
+    items = [
+        Row(["a.csv", "row=1"], {"text": "brain"}),
+        Row(["b.csv", "row=1"], {"note": "heart"}),
+    ]
+    with pytest.raises(ValueError, match="note"):
+        writer_for_format("csv").write(items, io.StringIO())
+
+
+def test_text_must_follow_its_row():
+    items = [
+        Row(["a.csv", "row=1"], {"text": "brain"}),
+        Row(["a.csv", "row=2"], {"text": "heart"}),
+        AnnotatedText("brain", location=["a.csv", "row=1", "text"]),
+    ]
+    with pytest.raises(ValueError, match="row=1"):
+        writer_for_format("csv").write(items, io.StringIO())
+
+
+def test_rows_after_texts_are_an_error():
+    items = [AnnotatedText("brain"), Row(["a.csv", "row=1"], {"text": "heart"})]
+    with pytest.raises(ValueError, match="Row"):
+        writer_for_format("csv").write(items, io.StringIO())
+
+
+def test_write_nothing():
+    out = io.StringIO()
+    writer_for_format("csv").write([], out)
+    assert out.getvalue().splitlines()[0].startswith("annotation_row,")

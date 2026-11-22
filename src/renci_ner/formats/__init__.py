@@ -16,6 +16,7 @@ import gzip
 import json
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
+from itertools import chain
 from pathlib import Path
 
 from renci_ner.core import AnnotatedText
@@ -176,16 +177,14 @@ class DelimitedFile(Format):
     one output row per annotation. A text with no annotations still gets one row, and so
     does a row with no texts, so a file can be read, annotated and written back with all
     its rows and columns. An input column named like one of ANNOTATION_COLUMNS (as when
-    this output is annotated again) is written as "input_<name>". Texts without a Row
-    (from TXT or JSONL input, or built by hand) get a row made from their own text: texts
-    with a reader's location, [filename, "row=N", column], share a row per filename and
-    N, with a column named by the location; any other text gets a row of its own, in a
-    "text" column.
+    this output is annotated again) is written as "input_<name>".
 
-    The writer holds every item in memory until the end, because the header must list
-    every column before the first row is written, and items from several inputs (a TXT
-    and a CSV, or CSVs with different headers) may add columns at any point. See #30
-    for ways to stream large inputs.
+    The writer takes either a reader's items, each Row followed by its texts, which it
+    writes row by row as they arrive, or texts alone (from TXT or JSONL input, or built
+    by hand), which it holds until the end (see #30). A text alone gets a row made from
+    its own text: texts with a reader's location, [filename, "row=N", column], share a
+    row per filename and N, with a column named by the location; any other text gets a
+    row of its own, in a "text" column.
     """
 
     def __init__(
@@ -276,29 +275,75 @@ class DelimitedFile(Format):
         return object(), "text"
 
     def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
-        # Held in full so the header can list every column; see the class docstring.
-        items = list(texts)
-        # Every row, keyed by its location minus the column, in order of first appearance,
-        # with its cells and the texts written against it.
-        cells: dict[tuple, dict[str, str]] = {}
-        texts_by_row: dict[tuple, list[tuple[str, AnnotatedText]]] = {}
+        items = iter(texts)
+        first = next(items, None)
+        if isinstance(first, Row):
+            self._write_rows(first, items, file)
+        else:
+            self._write_texts([] if first is None else chain([first], items), file)
+
+    def _write_rows(self, first: Row, items: Iterator, file) -> None:
+        """
+        Write a reader's items, each Row followed by its texts, as they arrive: a row
+        is written as soon as the next Row (or the end) shows that all its texts are
+        in. So only one row is held at a time, and a run that fails partway leaves the
+        rows before it written. The header comes from the first Row, so a later Row
+        may not add columns (rows of one file, or of files with the same header, don't).
+        """
+        writer, names = self._start(file, list(first.cells))
+        row, row_texts = first, []
         for item in items:
             if isinstance(item, Row):
-                key = tuple(item.location)
-                cells[key] = dict(item.cells)
-                texts_by_row.setdefault(key, [])
-        rows_from_input = set(cells)
+                self._write_row(writer, names, row, row_texts)
+                new = [c for c in item.cells if c not in names]
+                if new:
+                    raise ValueError(
+                        f"The Row at {item.location} has column(s) {new} that the "
+                        f"first Row ({first.location}) doesn't, and the header is "
+                        f"already written; write files with different columns to "
+                        f"separate outputs"
+                    )
+                row, row_texts = item, []
+            elif isinstance(item, AnnotatedText):
+                key, column = self._row_and_column(item)
+                if key != tuple(row.location):
+                    raise ValueError(
+                        f"The text at {item.location} doesn't belong to the Row "
+                        f"before it ({row.location}); pass each Row followed by its "
+                        f"texts, as a reader yields them, or only texts"
+                    )
+                row_texts.append((column, item))
+        self._write_row(writer, names, row, row_texts)
+
+    def _write_texts(self, items: Iterable, file) -> None:
+        """
+        Write texts without Rows (from TXT or JSONL input, or built by hand). Each
+        row's cells are its own texts, in columns named by their locations, so the
+        header isn't known until every text has been seen: these are held in memory
+        and written at the end.
+        """
+        rows: dict = {}
         for item in items:
+            if isinstance(item, Row):
+                raise ValueError(
+                    f"The Row at {item.location} comes after a text without one; pass "
+                    f"each Row followed by its texts, as a reader yields them, or only "
+                    f"texts"
+                )
             if isinstance(item, AnnotatedText):
                 key, column = self._row_and_column(item)
-                texts_by_row.setdefault(key, []).append((column, item))
-                if key not in rows_from_input:
-                    cells.setdefault(key, {})[column] = item.text
-
+                rows.setdefault(key, []).append((column, item))
         columns: list[str] = []
-        for row_cells in cells.values():
-            columns += [c for c in row_cells if c not in columns]
+        for row_texts in rows.values():
+            columns += [c for c, _ in row_texts if c not in columns]
+        writer, names = self._start(file, columns)
+        for key, row_texts in rows.items():
+            location = list(key) if isinstance(key, tuple) else []
+            cells = {column: text.text for column, text in row_texts}
+            self._write_row(writer, names, Row(location, cells), row_texts)
 
+    def _start(self, file, columns: list[str]) -> tuple[csv.DictWriter, dict]:
+        """Write the header for these input columns; return the writer and names."""
         names = self._output_names(columns)
         writer = csv.DictWriter(
             file,
@@ -306,33 +351,43 @@ class DelimitedFile(Format):
             dialect=self.dialect,
         )
         writer.writeheader()
-        for key, row_texts in texts_by_row.items():
-            row_cells = {names[c]: v for c, v in cells.get(key, {}).items()} | {
-                "annotation_row": self._row_number(key)
-            }
-            if not row_texts:
-                writer.writerow(row_cells)
-            for column, text in row_texts:
-                text_cells = row_cells | {
-                    "annotation_column": names.get(column, column)
-                }
-                if not text.annotations:
-                    writer.writerow(text_cells)
-                for ann in text.annotations:
-                    writer.writerow(
-                        text_cells
-                        | {
-                            "annotation_text": ann.text,
-                            "annotation_label": ann.label,
-                            "annotation_id": ann.id,
-                            "annotation_type": ann.type,
-                            "annotation_start": ann.start,
-                            "annotation_end": ann.end,
-                            "annotation_prov": " > ".join(
-                                f"{p.name} {p.version}" for p in ann.provenances
-                            ),
-                        }
-                    )
+        return writer, names
+
+    def _write_row(
+        self,
+        writer: csv.DictWriter,
+        names: dict[str, str],
+        row: Row,
+        row_texts: list[tuple[str, AnnotatedText]],
+    ) -> None:
+        """
+        Write one input row: its cells and `annotation_row`, then one output row per
+        annotation. A text with no annotations, and a row with no texts, still get one.
+        """
+        row_cells = {names[c]: v for c, v in row.cells.items()} | {
+            "annotation_row": self._row_number(row.location)
+        }
+        if not row_texts:
+            writer.writerow(row_cells)
+        for column, text in row_texts:
+            text_cells = row_cells | {"annotation_column": names.get(column, column)}
+            if not text.annotations:
+                writer.writerow(text_cells)
+            for ann in text.annotations:
+                writer.writerow(
+                    text_cells
+                    | {
+                        "annotation_text": ann.text,
+                        "annotation_label": ann.label,
+                        "annotation_id": ann.id,
+                        "annotation_type": ann.type,
+                        "annotation_start": ann.start,
+                        "annotation_end": ann.end,
+                        "annotation_prov": " > ".join(
+                            f"{p.name} {p.version}" for p in ann.provenances
+                        ),
+                    }
+                )
 
     @staticmethod
     def _output_names(columns: list[str]) -> dict[str, str]:
@@ -354,10 +409,10 @@ class DelimitedFile(Format):
         return names
 
     @staticmethod
-    def _row_number(key: tuple) -> str:
-        """N from a row key ending in "row=N", or "" for a text with a row of its own."""
-        if isinstance(key, tuple) and key[-1].startswith("row="):
-            return key[-1].removeprefix("row=")
+    def _row_number(location: list[str]) -> str:
+        """N from a Row location ending in "row=N", or "" for a row without one."""
+        if location and str(location[-1]).startswith("row="):
+            return location[-1].removeprefix("row=")
         return ""
 
 
