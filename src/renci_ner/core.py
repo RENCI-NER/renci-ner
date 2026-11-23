@@ -1,7 +1,7 @@
 import functools
 import json
 from dataclasses import dataclass, field, replace
-from typing import Self
+from typing import Generic, Self, TypeVar
 
 
 @dataclass
@@ -278,6 +278,54 @@ class AnnotatedText:
         return replace(self, annotations=new_annotations)
 
 
+T = TypeVar("T", Text, AnnotatedText)
+
+
+@dataclass(frozen=True)
+class Record(Generic[T]):
+    """
+    One unit of input, such as a line of a text file or a row of a CSV file, with the
+    texts in it to annotate. A reader in renci_ner.formats yields a Record[Text];
+    `record.annotate(annotator)` gives a Record[AnnotatedText] with the same location and
+    cells, which a writer takes.
+
+    `location` is where the record came from, such as [filename, "row=N"]. `cells` holds
+    every field of the record, including ones that aren't annotated (an `id` column,
+    say), so a writer can reproduce all of it. `texts` maps each field to annotate onto
+    its Text or AnnotatedText, in field order; each text's own location is the record's
+    location plus its field, so it still makes sense on its own.
+    """
+
+    location: list[str]
+    cells: dict[str, str]
+    texts: dict[str, T]
+
+    @classmethod
+    def from_text(cls, text: Text | AnnotatedText) -> "Record":
+        """A record holding a single text, in a field called "text"."""
+        return cls(list(text.location), {"text": text.text}, {"text": text})
+
+    def annotate(
+        self, annotator: "Annotator", props: dict = None
+    ) -> "Record[AnnotatedText]":
+        """Annotate every text with the annotator; location and cells are kept."""
+        return replace(
+            self,
+            texts={
+                name: annotator.annotate(text, props)
+                for name, text in self.texts.items()
+            },
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "@type": "renci_ner:Record",
+            "location": self.location,
+            "cells": self.cells,
+            "texts": {name: text.to_dict() for name, text in self.texts.items()},
+        }
+
+
 def _shifted(annotation: Annotation, offset: int) -> Annotation:
     """
     Return a copy of an annotation, and of every annotation in its based_on chain, moved `offset`
@@ -336,6 +384,11 @@ class Annotator:
             raise TypeError(
                 "Can't annotate an AnnotatedText, since that would drop its annotations; "
                 "use its reannotate() to build on them, or annotate a Text or str"
+            )
+        if isinstance(text, Record):
+            raise TypeError(
+                "Can't annotate a Record directly; use record.annotate(annotator), "
+                "which annotates each of its texts"
             )
         if not isinstance(text, str):
             raise TypeError(f"Can only annotate a str or Text, not {text!r}")
