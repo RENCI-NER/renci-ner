@@ -89,32 +89,54 @@ that it is cached.
 
 ## File formats
 
-[`renci_ner.formats`](src/renci_ner/formats/__init__.py) reads texts from files and
-writes annotated texts back out:
+[`renci_ner.formats`](src/renci_ner/formats/__init__.py) reads files as `Record`s and
+writes annotated `Record`s back out. A reader yields one `Record` per line or row; its
+`cells` hold every field (annotated or not) and its `texts` hold the fields to
+annotate, as `Text`s. `record.annotate(pipeline)` annotates each of them, keeping the
+record's location and cells:
 
 ```python
 from renci_ner.formats import open_text, reader_for_file, writer_for_format
 
 pipeline = Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm())
-with open_text("out.jsonl.gz", "w") as out:
-    # annotate() accepts an AnnotatedText and keeps its location.
-    texts = (pipeline.annotate(t) for t in reader_for_file("in.txt.gz").read())
-    writer_for_format("jsonl").write(texts, out)
+records = reader_for_file("in.csv", columns_exclude=["id"]).read()
+with open_text("out.csv", "w", newline="") as out:
+    writer_for_format("csv").write((r.annotate(pipeline) for r in records), out)
 ```
 
-* `.txt`: one text per line; blank lines are skipped. Writing emits only the text, and
-  raises `ValueError` for a text containing a line break (use JSONL for those).
-* `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
-  `location` from each line, so annotated output can be read back as input; its
-  annotations are not read back.
+Any reader can feed any writer, and a writer also accepts bare `Text`s and
+`AnnotatedText`s, each written as a one-text record.
+
+* `.txt`: one text per line; blank lines are skipped. Writing emits only the texts,
+  each on its own line, and raises `ValueError` for a text containing a line break
+  (use JSONL for those).
+* `.jsonl`: one `Record.to_dict()` per line, with every cell, so CSV → JSONL → CSV
+  keeps the columns that weren't annotated. Reading takes each record's location,
+  cells and texts, so annotated output can be read back as input; its annotations
+  are not read back
+  ([#25](https://github.com/RENCI-NER/renci-ner/issues/25)). A line holding a single
+  text (`{"text": ..., "location": ...}`, as older output did) is read as a one-text
+  record.
+* `.csv`, `.tsv`: one record per data row, with a text for each non-empty cell, in
+  every column or only some (`reader_for_file("in.csv",
+  columns_include=["description"])`, or `columns_exclude`). The output has every
+  input row and column, then `annotation_row` (the input's data row number) and one
+  output row per annotation; a cell or row with nothing annotated still gets one row.
+  An input column whose name clashes with the annotation columns, as when annotated
+  output is annotated again, is written as `input_<name>`. The reader refuses a header
+  that repeats a column name, and a row with more (non-blank) cells than the header,
+  rather than lose cells. The writer holds everything it is given in memory until the
+  end, since the header has to list every column first
+  ([#30](https://github.com/RENCI-NER/renci-ner/issues/30) is about streaming).
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
-ignored. Each `AnnotatedText` a reader yields has a `location` of
-`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns
-and rows count every line, blank or not. The exception is a JSONL line that already
-has a `location`, such as annotated output read back in: it keeps that one, so it
-still points at the original input.
+ignored. Each record a reader yields has a `location` of `[filename, "row=N"]`, and
+each of its texts is at `[filename, "row=N", column]`, where `column` is `"text"` for
+formats without columns. Rows count every line of a TXT or JSONL file, blank or not,
+and every data row of a CSV or TSV file, not counting the header. The exception is
+JSONL output read back in: a record or text there keeps the location it was written
+with, so it still points at the original input.
 
 ## Development
 
@@ -155,6 +177,18 @@ $ uv run ruff format
 classDiagram
   direction TD
 
+  class Text {
+    +text: str
+    +location: List[str]
+  }
+
+  class Record~T~ {
+    +location: List[str]
+    +cells: dict
+    +texts: dict~T~
+    +annotate(annotator) Record~AnnotatedText~
+  }
+
   class AnnotatedText {
     +text: str
     +annotations: List[Annotation]
@@ -162,8 +196,9 @@ classDiagram
   }
 
   class AnnotationProvenance {
-    +id : int
-    +name : string
+    +name: str
+    +url: str
+    +version: str
   }
 
   class Annotation {
@@ -181,13 +216,41 @@ classDiagram
      +biolink_type: str
   }
 
+  Record o-- "*" Text: "texts, before annotating"
+  Record o-- "*" AnnotatedText: "texts, after annotating"
+  Text ..> AnnotatedText: "Annotator.annotate()"
   Annotation "1" -- "1" AnnotationProvenance: "provenance"
   AnnotatedText "1" --* "*" Annotation: "annotations"
-  NormalizedAnnotation <|-- Annotation
+  Annotation <|-- NormalizedAnnotation
 ```
 
 This library is based around the following core classes
-found in [`renci_ner.core`](src/renci_ner/core.py).
+found in [`renci_ner.core`](src/renci_ner/core.py). A `Text` is annotated into an
+`AnnotatedText`; a `Record` groups the texts of one line or row of a file, before and
+after annotating. `Text` and `AnnotatedText` are separate classes, so the type says
+whether a text has been annotated yet.
+
+### Text
+
+A piece of text that hasn't been annotated yet.
+
+* `text` (str): The text.
+* `location` (list of str): Where the text came from (e.g. a filename, row and
+  column). `Annotator.annotate()` copies it onto the `AnnotatedText` it returns.
+
+### Record
+
+One line or row of input with the texts in it to annotate, as read by
+[`renci_ner.formats`](#file-formats).
+
+* `location` (list of str): Where the record came from, e.g. `[filename, "row=N"]`.
+* `cells` (dict of str): Every field of the record, including ones that aren't
+  annotated, so a writer can reproduce all of it.
+* `texts` (dict of `Text` or `AnnotatedText`): The fields to annotate. Each text's
+  location is the record's location plus its field name.
+
+`record.annotate(annotator)` returns a new `Record` whose texts are `AnnotatedText`s,
+with the same location and cells.
 
 ### AnnotatedText
 
@@ -282,7 +345,9 @@ be necessary someday.
 
 ### Annotator
 
-An annotator is a class that can take a piece of text and return an AnnotatedText.
+An annotator is a class that can take a piece of text (a `str` or a `Text`) and return an
+AnnotatedText. It refuses an `AnnotatedText`, whose annotations would be lost; use
+`reannotate()` to build on those.
 
 AnnotatedText allows annotators to be chained: for example, you can use BioMegatron
 to identify biomedical concepts in a text, then use NameRes or BabelSAPBERT to link those
