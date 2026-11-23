@@ -1,7 +1,7 @@
 import functools
 import json
 from dataclasses import dataclass, field, replace
-from typing import Self
+from typing import Generic, Self, TypeVar
 
 
 @dataclass
@@ -158,6 +158,28 @@ class NormalizedAnnotation(Annotation):
         return super().to_dict() | {"biolink_type": self.biolink_type}
 
 
+@dataclass(frozen=True)
+class Text:
+    """
+    A text that has not been annotated yet, with where it came from.
+
+    `Annotator.annotate()` turns a Text into an AnnotatedText with the same `location`.
+    Text and AnnotatedText are deliberately separate classes, neither a subclass of the
+    other, so the type says whether a text has been annotated: annotating an
+    AnnotatedText again goes through reannotate(), which builds on its annotations.
+    """
+
+    text: str
+    location: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "@type": "renci_ner:Text",
+            "text": self.text,
+            "location": self.location,
+        }
+
+
 @dataclass
 class AnnotatedText:
     """
@@ -256,6 +278,54 @@ class AnnotatedText:
         return replace(self, annotations=new_annotations)
 
 
+T = TypeVar("T", Text, AnnotatedText)
+
+
+@dataclass(frozen=True)
+class Record(Generic[T]):
+    """
+    One unit of input, such as a line of a text file or a row of a CSV file, with the
+    texts in it to annotate. A reader in renci_ner.formats yields a Record[Text];
+    `record.annotate(annotator)` gives a Record[AnnotatedText] with the same location and
+    cells, which a writer takes.
+
+    `location` is where the record came from, such as [filename, "row=N"]. `cells` holds
+    every field of the record, including ones that aren't annotated (an `id` column,
+    say), so a writer can reproduce all of it. `texts` maps each field to annotate onto
+    its Text or AnnotatedText, in field order; each text's own location is the record's
+    location plus its field, so it still makes sense on its own.
+    """
+
+    location: list[str]
+    cells: dict[str, str]
+    texts: dict[str, T]
+
+    @classmethod
+    def from_text(cls, text: Text | AnnotatedText) -> "Record":
+        """A record holding a single text, in a field called "text"."""
+        return cls(list(text.location), {"text": text.text}, {"text": text})
+
+    def annotate(
+        self, annotator: "Annotator", props: dict = None
+    ) -> "Record[AnnotatedText]":
+        """Annotate every text with the annotator; location and cells are kept."""
+        return replace(
+            self,
+            texts={
+                name: annotator.annotate(text, props)
+                for name, text in self.texts.items()
+            },
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "@type": "renci_ner:Record",
+            "location": self.location,
+            "cells": self.cells,
+            "texts": {name: text.to_dict() for name, text in self.texts.items()},
+        }
+
+
 def _shifted(annotation: Annotation, offset: int) -> Annotation:
     """
     Return a copy of an annotation, and of every annotation in its based_on chain, moved `offset`
@@ -292,26 +362,36 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str | AnnotatedText, props: dict = None) -> AnnotatedText:
+    def annotate(self, text: str | Text, props: dict = None) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`. Results are cached per (text, props); pass `skip_cache: True` to bypass the cache.
 
-        `text` may be an AnnotatedText (such as one from a renci_ner.formats reader): its text is annotated and the
-        result keeps its `location`. Any annotations it already has are ignored; use reannotate() to build on them.
+        `text` may be a Text (such as one from a renci_ner.formats reader): the result keeps its `location`. An
+        AnnotatedText is refused rather than re-annotated from scratch, which would drop its annotations; use its
+        reannotate() to build on them.
 
         The returned AnnotatedText may be shared with later callers, so don't modify it.
 
-        :param text: The text to annotate, as a str or an AnnotatedText.
+        :param text: The text to annotate, as a str or a Text.
         :param props: Properties supported by this annotator to use during the annotation.
         :return AnnotatedText: The annotated text.
         """
-        if isinstance(text, AnnotatedText):
+        if isinstance(text, Text):
             # replace() makes a copy, so this never modifies a cached result.
             return replace(self.annotate(text.text, props), location=text.location)
+        if isinstance(text, AnnotatedText):
+            raise TypeError(
+                "Can't annotate an AnnotatedText, since that would drop its annotations; "
+                "use its reannotate() to build on them, or annotate a Text or str"
+            )
+        if isinstance(text, Record):
+            raise TypeError(
+                "Can't annotate a Record directly; use record.annotate(annotator), "
+                "which annotates each of its texts"
+            )
         if not isinstance(text, str):
-            # Such as a renci_ner.formats.Row, which is passed through, not annotated.
-            raise TypeError(f"Can only annotate a str or AnnotatedText, not {text!r}")
+            raise TypeError(f"Can only annotate a str or Text, not {text!r}")
         props = dict(props or {})
         skip_cache = props.pop("skip_cache", False)
         if skip_cache or not self.cache_size:

@@ -1,15 +1,13 @@
 """
 What every format shares: opening (possibly gzipped) text files, picking a format by
-suffix, the Row record a CSV/TSV reader yields alongside its texts, and the Format
-interface.
+suffix, and the Format interface.
 """
 
 import gzip
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
 from pathlib import Path
 
-from renci_ner.core import AnnotatedText
+from renci_ner.core import AnnotatedText, Record, Text
 
 
 def open_text(filename: str, mode: str = "r", newline: str | None = None):
@@ -40,24 +38,11 @@ def format_suffix(filename: str) -> str:
     return suffixes[-1] if suffixes else ""
 
 
-@dataclass(frozen=True)
-class Row:
-    """
-    One row of a CSV/TSV input, with every cell (excluded and blank ones too), so the
-    writer can reproduce the row however few of its cells were annotated. `location` is
-    [filename, "row=N"]: the location of the row's AnnotatedTexts minus their column.
-    A Row is not a text: don't annotate it, just pass it on to the writer.
-    """
-
-    location: list[str]
-    cells: dict[str, str]
-
-
 class Format:
     """
-    A file format that can read and/or write AnnotatedTexts (and, for CSV/TSV, Rows). A
-    reader is constructed with the file it reads; a writer needs no filename, since
-    write() takes an open file handle (see open_text()).
+    A file format that can read and/or write Records. A reader is constructed with the
+    file it reads, and read() yields a Record[Text] per line or row; a writer needs no
+    filename, since write() takes an open file handle (see open_text()).
     """
 
     def __init__(self, filename: str | None = None):
@@ -69,8 +54,24 @@ class Format:
             raise ValueError(f"{type(self).__name__} was not given a file to read")
         return open_text(self.filename, newline=newline)
 
-    def read(self) -> Iterator[AnnotatedText | Row]:
+    def read(self) -> Iterator[Record[Text]]:
         raise NotImplementedError
 
-    def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
+    def write(self, records: Iterable[Record | Text | AnnotatedText], file) -> None:
         raise NotImplementedError
+
+
+def as_records(items: Iterable[Record | Text | AnnotatedText]) -> Iterator[Record]:
+    """
+    The items a writer was given, as Records: a bare Text or AnnotatedText (built by
+    hand, say) becomes a one-text Record (see Record.from_text()).
+    """
+    for item in items:
+        if isinstance(item, Record):
+            yield item
+        elif isinstance(item, Text | AnnotatedText):
+            yield Record.from_text(item)
+        else:
+            raise TypeError(
+                f"Can only write Records, Texts and AnnotatedTexts, not {item!r}"
+            )

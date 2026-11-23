@@ -1,19 +1,20 @@
 """
-Readers and writers for AnnotatedText in plain files.
+Readers and writers for Records in plain files.
 
-A reader yields one AnnotatedText per unit of text (a line, a cell) with a `location`
-of `[filename, "row=N", column]`, where column is "text" for formats without columns.
-(A JSONL line that already has a location keeps it, so annotated output read back in
-still points at the original input.) A CSV/TSV reader also yields a Row before each
-row's texts, holding every cell of that row, so the writer can put the whole row back;
-annotate only the AnnotatedTexts and pass Rows through. A writer takes these items and
-a file handle; the TXT and JSONL writers skip Rows. Files ending in .gz are gzipped.
+A reader yields one Record[Text] per line or row: its `location` is
+`[filename, "row=N"]`, its `cells` hold every field (so a writer can put back what
+wasn't annotated), and its `texts` hold the fields to annotate, each a Text at
+`[filename, "row=N", column]`, where column is "text" for formats without columns.
+Annotate a record with `record.annotate(pipeline)`, and give the results to a writer,
+which takes Records (or bare Texts and AnnotatedTexts) and a file handle. Files ending
+in .gz are gzipped.
 """
 
 import functools
 from collections.abc import Callable
 
-from renci_ner.formats.base import Format, Row, format_suffix, open_text
+from renci_ner.core import Record, Text
+from renci_ner.formats.base import Format, as_records, format_suffix, open_text
 from renci_ner.formats.delimited import ANNOTATION_COLUMNS, DelimitedFile
 from renci_ner.formats.jsonl import JsonlFile
 from renci_ner.formats.text import TextFile
@@ -24,8 +25,10 @@ __all__ = [
     "DelimitedFile",
     "Format",
     "JsonlFile",
-    "Row",
+    "Record",
+    "Text",
     "TextFile",
+    "as_records",
     "format_suffix",
     "open_text",
     "reader_for_file",
