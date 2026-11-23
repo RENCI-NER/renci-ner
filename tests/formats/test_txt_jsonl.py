@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance
+from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance, Record, Text
 from renci_ner.formats import (
     JsonlFile,
     TextFile,
@@ -15,6 +15,11 @@ from renci_ner.formats import (
 )
 
 PROV = AnnotationProvenance("Test", "http://example.com", "0.1")
+
+
+def texts_of(records):
+    """Every text in the records, in order."""
+    return [t.text for r in records for t in r.texts.values()]
 
 
 def annotated():
@@ -40,12 +45,16 @@ def test_txt_round_trip(tmp_path):
     path.write_text("The brain.\n\nThe heart.\n  \n\n")
 
     # Blank lines are skipped, but still counted in the row numbers.
-    texts = list(TextFile(str(path)).read())
-    assert [t.text for t in texts] == ["The brain.", "The heart."]
-    assert texts[1].location == [str(path), "row=3", "text"]
+    records = list(TextFile(str(path)).read())
+    assert texts_of(records) == ["The brain.", "The heart."]
+    assert records[1].location == [str(path), "row=3"]
+    assert records[1].cells == {"text": "The heart."}
+    assert records[1].texts == {
+        "text": Text("The heart.", [str(path), "row=3", "text"])
+    }
 
     out = io.StringIO()
-    writer_for_format("txt").write(texts, out)
+    writer_for_format("txt").write(records, out)
     assert out.getvalue() == "The brain.\nThe heart.\n"
 
 
@@ -56,23 +65,48 @@ def test_txt_refuses_line_breaks(text):
 
 
 def test_jsonl_write_and_read(tmp_path):
+    record = Record(
+        ["in.csv", "row=1"], {"id": "1", "text": "The brain."}, {"text": annotated()}
+    )
     out = io.StringIO()
-    JsonlFile().write([annotated()], out)
+    JsonlFile().write([record], out)
     (line,) = out.getvalue().splitlines()
     data = json.loads(line)
-    assert data["@type"] == "renci_ner:AnnotatedText"
-    assert data["annotations"][0]["id"] == "UBERON:0000955"
+    assert data["@type"] == "renci_ner:Record"
+    assert data["cells"] == {"id": "1", "text": "The brain."}
+    assert data["texts"]["text"]["annotations"][0]["id"] == "UBERON:0000955"
 
+    # Read back alongside a bare text line and an older one-AnnotatedText line.
     path = tmp_path / "out.jsonl"
-    path.write_text(out.getvalue() + "\n" + json.dumps({"text": "bare"}) + "\n")
-    texts = list(reader_for_file(str(path)).read())
-    assert [t.text for t in texts] == ["The brain.", "bare"]
-    assert texts[0].location == ["in.txt", "row=1", "text"]
-    assert texts[1].location == [str(path), "row=3", "text"]
+    old_line = json.dumps(annotated().to_dict())
+    path.write_text(
+        out.getvalue() + "\n" + json.dumps({"text": "bare"}) + "\n" + old_line + "\n"
+    )
+    records = list(reader_for_file(str(path)).read())
+    assert texts_of(records) == ["The brain.", "bare", "The brain."]
+    # A record keeps its own location and cells, so it still points at the input;
+    # its texts are Texts again, since annotations are not read back (#25).
+    assert records[0].location == ["in.csv", "row=1"]
+    assert records[0].cells == {"id": "1", "text": "The brain."}
+    assert records[0].texts["text"] == Text("The brain.", ["in.txt", "row=1", "text"])
+    # A single-text line becomes a one-text record at its row of the JSONL file;
+    # its text keeps the line's own location if it has one.
+    assert records[1].location == [str(path), "row=3"]
+    assert records[1].texts["text"].location == [str(path), "row=3", "text"]
+    assert records[2].texts["text"].location == ["in.txt", "row=1", "text"]
 
 
 @pytest.mark.parametrize(
-    "line", ['["a"]', '"text"', '{"txt": "a"}', '{"text": 1}', "{not json"]
+    "line",
+    [
+        '["a"]',
+        '"text"',
+        '{"txt": "a"}',
+        '{"text": 1}',
+        "{not json",
+        '{"@type": "renci_ner:Record", "cells": {}, "texts": {"a": {"txt": 1}}}',
+        '{"@type": "renci_ner:Record", "texts": {}}',
+    ],
 )
 def test_jsonl_bad_lines_name_file_and_row(tmp_path, line):
     path = tmp_path / "bad.jsonl"
@@ -87,7 +121,7 @@ def test_gzip_by_suffix(tmp_path):
         f.write("gzipped brain\n")
     reader = reader_for_file(str(path))
     assert isinstance(reader, TextFile)
-    assert [t.text for t in reader.read()] == ["gzipped brain"]
+    assert texts_of(reader.read()) == ["gzipped brain"]
 
 
 def test_open_text_modes(tmp_path):
@@ -105,11 +139,11 @@ def test_open_text_modes(tmp_path):
 def test_byte_order_mark_is_dropped(tmp_path):
     txt = tmp_path / "bom.txt"
     txt.write_bytes("﻿The brain.\n".encode())
-    assert [t.text for t in reader_for_file(str(txt)).read()] == ["The brain."]
+    assert texts_of(reader_for_file(str(txt)).read()) == ["The brain."]
 
     jsonl = tmp_path / "bom.jsonl"
     jsonl.write_bytes(("﻿" + json.dumps({"text": "The brain."}) + "\n").encode())
-    assert [t.text for t in reader_for_file(str(jsonl)).read()] == ["The brain."]
+    assert texts_of(reader_for_file(str(jsonl)).read()) == ["The brain."]
 
     # Writing never adds a byte-order mark.
     with open_text(str(txt), "w") as f:

@@ -8,6 +8,8 @@ from renci_ner.core import (
     AnnotationProvenance,
     Annotator,
     NormalizedAnnotation,
+    Record,
+    Text,
 )
 
 
@@ -194,3 +196,75 @@ def test_str_is_compact():
         "NormalizedAnnotation('brain' [4:9] -> STUB:0 'brain' biolink:NamedThing)"
     )
     assert "based_on" not in str(result)
+
+
+class Upper(Annotator):
+    """Annotates the whole text, labelled in upper case."""
+
+    provenance = AnnotationProvenance("Upper", "http://upper.example/", "1")
+
+    def _annotate(self, text, props):
+        return AnnotatedText(
+            text,
+            [
+                Annotation(
+                    text,
+                    "X:1",
+                    text.upper(),
+                    "biolink:NamedThing",
+                    0,
+                    len(text),
+                    self.provenance,
+                )
+            ],
+        )
+
+
+def csv_record():
+    return Record(
+        ["in.csv", "row=1"],
+        {"id": "1", "name": "Brain", "note": ""},
+        {"name": Text("Brain", ["in.csv", "row=1", "name"])},
+    )
+
+
+def test_record_annotate_keeps_location_and_cells():
+    record = csv_record()
+    result = record.annotate(Upper())
+    assert result.location == record.location
+    assert result.cells == record.cells
+    (text,) = result.texts.values()
+    assert isinstance(text, AnnotatedText)
+    assert text.location == ["in.csv", "row=1", "name"]
+    assert text.annotations[0].label == "BRAIN"
+    # The original record is unchanged.
+    assert isinstance(record.texts["name"], Text)
+
+
+def test_record_cannot_be_annotated_twice():
+    # Its texts are AnnotatedTexts by then, which annotate() refuses.
+    with pytest.raises(TypeError, match="reannotate"):
+        csv_record().annotate(Upper()).annotate(Upper())
+
+
+def test_annotate_refuses_a_record():
+    with pytest.raises(TypeError, match="record.annotate"):
+        Upper().annotate(csv_record())
+
+
+def test_record_from_text():
+    text = Text("brain", ["in.txt", "row=3", "text"])
+    record = Record.from_text(text)
+    assert record.location == ["in.txt", "row=3", "text"]
+    assert record.cells == {"text": "brain"}
+    assert record.texts == {"text": text}
+
+
+def test_record_to_dict():
+    d = csv_record().annotate(Upper()).to_dict()
+    assert d["@type"] == "renci_ner:Record"
+    assert d["location"] == ["in.csv", "row=1"]
+    assert d["cells"] == {"id": "1", "name": "Brain", "note": ""}
+    assert d["texts"]["name"]["@type"] == "renci_ner:AnnotatedText"
+    assert d["texts"]["name"]["annotations"][0]["label"] == "BRAIN"
+    assert json.loads(json.dumps(d)) == d
