@@ -34,7 +34,9 @@ uv build
 
 - **Annotation** — base data class: text, id, label, type, start/end offsets, provenance, `based_on` chain
 - **NormalizedAnnotation** — extends Annotation with `biolink_type` (must start with `"biolink:"`) and CURIE id
+- **Text** — un-annotated text + `location`; `Annotator.annotate()` turns it into an AnnotatedText. Deliberately not a subclass of AnnotatedText (or vice versa), so the type says whether a text is annotated
 - **AnnotatedText** — container for text + annotations; provides `reannotate()` and `transform()` for chaining
+- **Record[T]** — one line/row of input: `location`, every field in `cells`, and the fields to annotate in `texts` (Texts before, AnnotatedTexts after `record.annotate(annotator)`)
 - **Annotator** / **Transformer** — interfaces that services implement
 - **Pipeline** / **MultiAnnotator** — compose services; see Service Pipeline below
 - **AnnotationProvenance** — tracks service name, URL, version for each step
@@ -59,9 +61,9 @@ a re-ranker. Both are Annotators themselves, so they nest.
 
 ### File formats (`src/renci_ner/formats/`)
 
-One module per format (`text.py`, `jsonl.py`, `delimited.py`), with what they share (`open_text()`, `Row`, the `Format` interface) in `base.py`; `__init__.py` holds the `FORMATS` registry and re-exports the public names, so import from `renci_ner.formats`. A new format gets its own module and a `FORMATS` entry.
-`reader_for_file(filename, **kwargs)` picks a `Format` by suffix (`.txt`, `.jsonl`, `.csv`, `.tsv`; `.gz` is transparent) whose `read()` yields `AnnotatedText`s with `location=[filename, "row=N", column]` (except that a JSONL line keeps its own `location` if it has one); `writer_for_format(name).write(texts, file)` writes them to a handle, e.g. from `open_text()`. JSONL writes `to_dict()` and reads back only text and location. TXT skips blank lines on reading and refuses texts with line breaks on writing.
-`DelimitedFile` reads one text per non-empty cell (`columns_include`/`columns_exclude`, passed through `reader_for_file()`), preceded by a `Row(location=[filename, "row=N"], cells)` with every cell of that row. Callers annotate only `AnnotatedText`s and pass `Row`s through (`annotate()` raises `TypeError` on one); the TXT/JSONL writers skip them. The CSV/TSV writer holds all items in memory (the header needs every column first; #30), joins texts to their `Row` by location, and groups texts without a `Row` into rows only when their location is `[filename, "row=N", column]`. It writes each row's cells (renaming any that clash with `ANNOTATION_COLUMNS` to `input_<name>`), `annotation_row`, then one row per annotation.
+One module per format (`text.py`, `jsonl.py`, `delimited.py`), with what they share (`open_text()`, `as_records()`, the `Format` interface) in `base.py`; `__init__.py` holds the `FORMATS` registry and re-exports the public names, so import from `renci_ner.formats`. A new format gets its own module and a `FORMATS` entry.
+`reader_for_file(filename, **kwargs)` picks a `Format` by suffix (`.txt`, `.jsonl`, `.csv`, `.tsv`; `.gz` is transparent) whose `read()` yields one `Record[Text]` per line or row, at `[filename, "row=N"]`, with its texts at `[filename, "row=N", column]`; callers annotate with `record.annotate(pipeline)`. `writer_for_format(name).write(records, file)` writes Records (bare Texts/AnnotatedTexts become one-text Records via `as_records()`) to a handle, e.g. from `open_text()`. TXT skips blank lines on reading and refuses texts with line breaks on writing. JSONL writes one `Record.to_dict()` per line (cells included); it reads back location, cells and texts but not annotations (#25), and still reads single-text lines, keeping their own location.
+`DelimitedFile` reads a record per data row (rows with nothing to annotate too), with a text per non-empty cell of the chosen columns (`columns_include`/`columns_exclude`, passed through `reader_for_file()`). The CSV/TSV writer holds all records in memory (the header needs every column first; #30), and writes each record's cells (renaming any that clash with `ANNOTATION_COLUMNS` to `input_<name>`), `annotation_row`, then one row per annotation.
 
 ### Key Patterns
 
