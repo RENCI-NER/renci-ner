@@ -62,6 +62,15 @@ class DelimitedFile(Format):
         self.columns_include = list(dict.fromkeys(columns_include or []))
         self.columns_exclude = set(columns_exclude or [])
 
+    def header(self) -> list[str]:
+        """
+        The file's column names, read from its first line. Callers that apply the same
+        column options to several files (such as the CLI) can use this to give each
+        file only the columns it has, since read() refuses a column it doesn't have.
+        """
+        with self._open(newline="") as f:
+            return next(csv.reader(f, dialect=self.dialect), [])
+
     def read(self) -> Iterator[Record[Text]]:
         with self._open(newline="") as f:
             reader = csv.DictReader(f, dialect=self.dialect)

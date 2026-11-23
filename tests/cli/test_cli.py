@@ -79,8 +79,11 @@ def test_txt_in_jsonl_file_out(tmp_path, stub_pipeline):
     assert result.exit_code == 0, result.output
     (line,) = out.read_text().splitlines()
     data = json.loads(line)
-    assert data["location"] == [str(path), "row=1", "text"]
-    assert [a["start"] for a in data["annotations"]] == [0, 6]
+    assert data["@type"] == "renci_ner:Record"
+    assert data["location"] == [str(path), "row=1"]
+    text = data["texts"]["text"]
+    assert text["location"] == [str(path), "row=1", "text"]
+    assert [a["start"] for a in text["annotations"]] == [0, 6]
 
 
 def test_column_options_need_delimited_input(tmp_path, stub_pipeline):
@@ -122,7 +125,8 @@ def test_live_pmid():
     assert result.exit_code == 0, result.output
     lines = [json.loads(line) for line in result.output.splitlines()]
     assert len(lines) == 3
-    assert sum(len(line["annotations"]) for line in lines) > 10
+    texts = [t for line in lines for t in line["texts"].values()]
+    assert sum(len(t["annotations"]) for t in texts) > 10
 
 
 @pytest.mark.parametrize(
@@ -183,7 +187,7 @@ def test_empty_input_file(tmp_path, stub_pipeline):
     path.write_text("text\n")
     result = CliRunner().invoke(cli.main, ["--no-progress", str(path)])
     assert result.exit_code == 0, result.output
-    # Header only; input columns are learned from the texts, so none appear here.
+    # Header only; input columns are learned from the records, so none appear here.
     assert result.output.splitlines() == [",".join(ANNOTATION_COLUMNS)]
 
 
@@ -195,4 +199,29 @@ def test_gzipped_output(tmp_path, stub_pipeline):
     assert result.exit_code == 0, result.output
     with gzip.open(out, "rt", encoding="utf-8") as f:
         (line,) = f.read().splitlines()
-    assert json.loads(line)["annotations"][0]["id"] == "UBERON:0000955"
+    text = json.loads(line)["texts"]["text"]
+    assert text["annotations"][0]["id"] == "UBERON:0000955"
+
+
+def test_exclude_column_applies_where_a_file_has_it(tmp_path, stub_pipeline):
+    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
+    a.write_text("id,text\n1,brain\n")
+    b.write_text("text\nbrain\n")
+    result = CliRunner().invoke(
+        cli.main, ["--no-progress", "--exclude-column", "id", str(a), str(b)]
+    )
+    assert result.exit_code == 0, result.output
+    rows = list(csv.DictReader(io.StringIO(result.output)))
+    # The id column is excluded from a.csv and not looked for in b.csv.
+    assert [(r["id"], r["annotation_column"]) for r in rows] == [
+        ("1", "text"),
+        ("", "text"),
+    ]
+
+
+def test_exclude_column_in_no_file_is_an_error(tmp_path, stub_pipeline):
+    path = tmp_path / "in.csv"
+    path.write_text("id,text\n1,brain\n")
+    result = CliRunner().invoke(cli.main, ["--exclude-column", "ID", str(path)])
+    assert result.exit_code != 0
+    assert "not a column of any input file" in result.output

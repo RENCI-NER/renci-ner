@@ -47,8 +47,10 @@ $ uv run renci-ner --method biomegatron-bagel -f jsonl abstracts.txt > out.jsonl
 
 CSV/TSV output has the input row's cells followed by one row per annotation
 (`annotation_text`, `annotation_id`, `annotation_type`, offsets, provenance);
-JSONL output is one `AnnotatedText.to_dict()` per line. See `renci-ner --help`
-for the options. Bagel needs `BAGEL_USERNAME` and `BAGEL_PASSWORD` (see
+JSONL output is one `Record.to_dict()` per line (see [File formats](#file-formats)).
+`--include-column` must name a column of every CSV/TSV input, while
+`--exclude-column` applies to each file that has that column (and is an error only if
+no input has it). See `renci-ner --help` for the options. Bagel needs `BAGEL_USERNAME` and `BAGEL_PASSWORD` (see
 [Configuration](#configuration)).
 
 ## Configuration

@@ -13,7 +13,7 @@ from collections.abc import Iterable
 import click
 from tqdm import tqdm
 
-from renci_ner.core import AnnotatedText, Annotator, MultiAnnotator, Pipeline
+from renci_ner.core import AnnotatedText, Annotator, MultiAnnotator, Pipeline, Record
 from renci_ner.formats import (
     FORMATS,
     DelimitedFile,
@@ -88,29 +88,50 @@ def build_pipeline(method: str, session=None, limit: int = 1) -> Annotator:
     raise ValueError(f"Unknown method {method!r}; expected one of {METHODS}")
 
 
-def read_texts(
+def read_records(
     input_files: Iterable[str], columns_include=(), columns_exclude=()
-) -> list[AnnotatedText]:
-    """Read every text from the input files; column options apply to CSV/TSV only."""
-    texts = []
+) -> list[Record]:
+    """
+    Read every record from the input files; column options apply to CSV/TSV only.
+
+    --include-column must name a column of every CSV/TSV input, as the reader requires.
+    --exclude-column applies to each file only where that file has the column, since one
+    list is given for every input; a column that no input has is still an error, as it
+    is almost certainly a typo.
+    """
+    readers = []
+    unused_excludes = set(columns_exclude)
     for filename in input_files:
         reader = reader_for_file(filename)
         if isinstance(reader, DelimitedFile):
-            reader.columns_include = list(columns_include)
-            reader.columns_exclude = set(columns_exclude)
+            header = reader.header()
+            excludes = [c for c in columns_exclude if c in header]
+            unused_excludes -= set(excludes)
+            reader = reader_for_file(
+                filename,
+                columns_include=list(columns_include),
+                columns_exclude=excludes,
+            )
         elif columns_include or columns_exclude:
             raise click.UsageError(
                 f"--include-column/--exclude-column only apply to CSV/TSV input, not {filename}"
             )
-        texts.extend(reader.read())
-    return texts
+        readers.append(reader)
+    if unused_excludes:
+        raise click.UsageError(
+            f"--exclude-column {sorted(unused_excludes)} is not a column of any input file"
+        )
+    return [record for reader in readers for record in reader.read()]
 
 
-def annotate_texts(
-    pipeline: Annotator, texts: list[AnnotatedText], progress: bool = True
-) -> list[AnnotatedText]:
-    """Annotate each text, keeping its location; shows a progress bar on stderr."""
-    return [pipeline.annotate(text) for text in tqdm(texts, disable=not progress)]
+def annotate_records(
+    pipeline: Annotator, records: list[Record], progress: bool = True
+) -> list[Record[AnnotatedText]]:
+    """Annotate every text of each record; shows a progress bar (in records) on stderr."""
+    return [
+        record.annotate(pipeline)
+        for record in tqdm(records, unit="record", disable=not progress)
+    ]
 
 
 @click.command()
@@ -179,12 +200,15 @@ def main(
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
 
     with user_errors():
-        texts = read_texts(input_files, include_column, exclude_column)
-    logger.info(f"Read {len(texts)} texts from {len(input_files)} file(s).")
+        records = read_records(input_files, include_column, exclude_column)
+    texts = sum(len(record.texts) for record in records)
+    logger.info(
+        f"Read {len(records)} records with {texts} texts from {len(input_files)} file(s)."
+    )
 
     with user_errors():
         pipeline = build_pipeline(method, make_session(retries), limit)
-    annotated = annotate_texts(pipeline, texts, progress=not no_progress)
+    annotated = annotate_records(pipeline, records, progress=not no_progress)
 
     writer = writer_for_format(output_format)
     with user_errors():
@@ -193,7 +217,7 @@ def main(
         else:
             with open_text(output, "wt", newline="") as f:
                 writer.write(annotated, f)
-        logger.info(f"Wrote {len(annotated)} annotated texts to {output}.")
+        logger.info(f"Wrote {len(annotated)} annotated records to {output}.")
 
 
 if __name__ == "__main__":
