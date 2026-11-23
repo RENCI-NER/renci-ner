@@ -176,3 +176,56 @@ def test_jsonl_record_without_locations(tmp_path):
     assert record.location == [str(path), "row=1"]
     assert record.cells == {"id": "7", "name": "brain"}
     assert record.texts == {"name": Text("brain", [str(path), "row=1", "name"])}
+
+
+def test_jsonl_reads_annotations_back(tmp_path):
+    record = Record(
+        ["in.csv", "row=1"],
+        {"id": "1", "text": "The brain.", "note": "no texts here"},
+        {"text": annotated()},
+    )
+    path = tmp_path / "out.jsonl"
+    with open(path, "w") as f:
+        JsonlFile().write(
+            [
+                record,
+                Record(
+                    ["in.csv", "row=2"],
+                    {"text": "Plain."},
+                    {"text": Text("Plain.", ["in.csv", "row=2", "text"])},
+                ),
+            ],
+            f,
+        )
+        # An older one-AnnotatedText line, and a bare one.
+        f.write(json.dumps(annotated().to_dict()) + "\n")
+        f.write(json.dumps({"text": "bare"}) + "\n")
+
+    first, plain, old, bare = reader_for_file(str(path), annotated=True).read()
+    # Everything comes back as it was written, annotations included.
+    assert first == record
+    assert first.texts["text"].annotations[0].id == "UBERON:0000955"
+    # A text that was never annotated comes back as an AnnotatedText with none.
+    assert plain.texts["text"] == AnnotatedText(
+        "Plain.", [], ["in.csv", "row=2", "text"]
+    )
+    assert old.texts["text"] == annotated()
+    assert bare.texts["text"] == AnnotatedText("bare", [], [str(path), "row=4", "text"])
+
+    # Read as input, the same file gives Texts and drops the annotations.
+    as_input = list(reader_for_file(str(path)).read())
+    assert all(isinstance(t, Text) for r in as_input for t in r.texts.values())
+    assert as_input[0].texts["text"] == Text("The brain.", ["in.txt", "row=1", "text"])
+
+
+def test_jsonl_bad_annotations_name_file_and_row(tmp_path):
+    path = tmp_path / "bad.jsonl"
+    bad = annotated().to_dict()
+    del bad["annotations"][0]["provenance"]
+    path.write_text(json.dumps(bad) + "\n")
+    with pytest.raises(ValueError, match=re.escape(f"{path}, row 1") + ".*provenance"):
+        list(reader_for_file(str(path), annotated=True).read())
+
+    # As input, the annotations aren't read, so the file can still be used.
+    (record,) = reader_for_file(str(path)).read()
+    assert record.texts["text"].text == "The brain."

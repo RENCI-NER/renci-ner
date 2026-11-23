@@ -24,6 +24,10 @@ class AnnotationProvenance:
             "version": self.version,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(data["name"], data["url"], data["version"])
+
 
 @dataclass
 class Annotation:
@@ -69,6 +73,26 @@ class Annotation:
             "based_on": [ann.to_dict() for ann in self.based_on],
             "props": self.props,
         }
+
+    @classmethod
+    def _fields_from_dict(cls, data: dict) -> dict:
+        """The constructor arguments for an Annotation, from its to_dict()."""
+        return {
+            "text": data["text"],
+            "id": data["id"],
+            "label": data["label"],
+            "type": data["type"],
+            "start": data["start"],
+            "end": data["end"],
+            "provenance": AnnotationProvenance.from_dict(data["provenance"]),
+            # A based_on chain can mix Annotations and NormalizedAnnotations.
+            "based_on": [_annotation(ann) for ann in data.get("based_on", [])],
+            "props": dict(data.get("props") or {}),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(**cls._fields_from_dict(data))
 
 
 @dataclass
@@ -157,6 +181,10 @@ class NormalizedAnnotation(Annotation):
     def to_dict(self) -> dict:
         return super().to_dict() | {"biolink_type": self.biolink_type}
 
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(**cls._fields_from_dict(data), biolink_type=data.get("biolink_type"))
+
 
 @dataclass(frozen=True)
 class Text:
@@ -178,6 +206,10 @@ class Text:
             "text": self.text,
             "location": self.location,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(_string(data, "text"), list(data.get("location") or []))
 
 
 @dataclass
@@ -209,6 +241,14 @@ class AnnotatedText:
             "location": self.location,
             "annotations": [ann.to_dict() for ann in self.annotations],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(
+            _string(data, "text"),
+            [_annotation(ann) for ann in data.get("annotations", [])],
+            list(data.get("location") or []),
+        )
 
     def transform(self, transformer: "Transformer", props: dict = None) -> Self:
         """
@@ -326,6 +366,61 @@ class Record(Generic[T]):
             "cells": self.cells,
             "texts": {name: text.to_dict() for name, text in self.texts.items()},
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Record":
+        texts = {name: from_dict(text) for name, text in data["texts"].items()}
+        if not all(isinstance(t, Text | AnnotatedText) for t in texts.values()):
+            raise ValueError("a Record's texts must be Texts or AnnotatedTexts")
+        return cls(list(data.get("location") or []), dict(data["cells"]), texts)
+
+
+# The classes from_dict() can rebuild, by the "@type" their to_dict() writes.
+_TYPES = {
+    f"renci_ner:{cls.__name__}": cls
+    for cls in (
+        AnnotationProvenance,
+        Annotation,
+        NormalizedAnnotation,
+        Text,
+        AnnotatedText,
+        Record,
+    )
+}
+
+
+def from_dict(data: dict):
+    """
+    Rebuild a core object (an Annotation, Text, AnnotatedText, Record, ...) from its
+    to_dict(), choosing the class by its "@type". Raises ValueError if the type is
+    unknown or a field is missing or malformed.
+    """
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a JSON object with an @type, got {data!r}"[:200])
+    cls = _TYPES.get(data.get("@type"))
+    if cls is None:
+        raise ValueError(
+            f"Unknown @type {data.get('@type')!r}; expected one of {sorted(_TYPES)}"
+        )
+    try:
+        return cls.from_dict(data)
+    except (KeyError, TypeError, AttributeError) as e:
+        raise ValueError(f"Invalid {data['@type']}: {e!r}") from e
+
+
+def _annotation(data: dict) -> Annotation:
+    """from_dict(), for a value that must be an Annotation (or NormalizedAnnotation)."""
+    annotation = from_dict(data)
+    if not isinstance(annotation, Annotation):
+        raise ValueError(f"Expected an Annotation, got {data.get('@type')!r}")
+    return annotation
+
+
+def _string(data: dict, key: str) -> str:
+    """data[key], which must be a string."""
+    if not isinstance(data[key], str):
+        raise ValueError(f"{key!r} must be a string, not {data[key]!r}")
+    return data[key]
 
 
 def _shifted(annotation: Annotation, offset: int) -> Annotation:

@@ -111,11 +111,11 @@ Any reader can feed any writer, and a writer also accepts bare `Text`s and
   each on its own line, and raises `ValueError` for a text containing a line break
   (use JSONL for those).
 * `.jsonl`: one `Record.to_dict()` per line, with every cell, so CSV → JSONL → CSV
-  keeps the columns that weren't annotated. Reading takes each record's location,
-  cells and texts, so annotated output can be read back as input; its annotations
-  are not read back
-  ([#25](https://github.com/RENCI-NER/renci-ner/issues/25)). A line holding a single
-  text (`{"text": ..., "location": ...}`, as older output did) is read as a one-text
+  keeps the columns that weren't annotated. By default, reading gives records of
+  `Text`s, so annotated output can be annotated again; its annotations are skipped.
+  `reader_for_file("out.jsonl", annotated=True)` reads them back instead, giving
+  records of `AnnotatedText`s, for comparing runs. A line holding a single text
+  (`{"text": ..., "location": ...}`, as older output did) is read as a one-text
   record.
 * `.csv`, `.tsv`: one record per data row, with a text for each non-empty cell, in
   every column or only some (`reader_for_file("in.csv",
@@ -264,7 +264,8 @@ A piece of text along with its annotations.
 
 All the core classes have a `to_dict()` method that returns a JSON-serializable
 dict tagged with an `@type` (e.g. `renci_ner:Annotation`), and a compact
-`str()` for logging.
+`str()` for logging. `renci_ner.core.from_dict()` rebuilds any of them from that
+dict, choosing the class by its `@type`.
 
 Additionally, `AnnotatedText` has methods to help chain
 `Annotators` and `Transformers` together.

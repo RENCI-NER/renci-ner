@@ -10,6 +10,7 @@ from renci_ner.core import (
     NormalizedAnnotation,
     Record,
     Text,
+    from_dict,
 )
 
 
@@ -268,3 +269,61 @@ def test_record_to_dict():
     assert d["texts"]["name"]["@type"] == "renci_ner:AnnotatedText"
     assert d["texts"]["name"]["annotations"][0]["label"] == "BRAIN"
     assert json.loads(json.dumps(d)) == d
+
+
+def test_from_dict_round_trips():
+    linked = ner_text().reannotate(StubLinker(n=2))
+    assert isinstance(linked.annotations[0], NormalizedAnnotation)
+    record = Record(
+        ["in.csv", "row=1"], {"id": "1", "text": linked.text}, {"text": linked}
+    )
+    for obj in [
+        linked.annotations[0].provenance,
+        linked.annotations[0].based_on[0],
+        linked.annotations[0],
+        linked,
+        Text("brain", ["in.txt", "row=1", "text"]),
+        record,
+        csv_record(),
+    ]:
+        # Through JSON too, as a JSONL file would carry it.
+        rebuilt = from_dict(json.loads(json.dumps(obj.to_dict())))
+        assert type(rebuilt) is type(obj)
+        assert rebuilt == obj
+
+
+@pytest.mark.parametrize(
+    "data, message",
+    [
+        (["not", "a", "dict"], "JSON object"),
+        ({"text": "no type"}, "Unknown @type"),
+        ({"@type": "renci_ner:Text"}, "Invalid renci_ner:Text"),
+        ({"@type": "renci_ner:Text", "text": 1}, "must be a string"),
+        (
+            {
+                "@type": "renci_ner:AnnotatedText",
+                "text": "a",
+                "annotations": [{"@type": "renci_ner:Text", "text": "a"}],
+            },
+            "Expected an Annotation",
+        ),
+        (
+            {
+                "@type": "renci_ner:Record",
+                "cells": {},
+                "texts": {
+                    "a": {
+                        "@type": "renci_ner:AnnotationProvenance",
+                        "name": "n",
+                        "url": "u",
+                        "version": "v",
+                    }
+                },
+            },
+            "Texts or AnnotatedTexts",
+        ),
+    ],
+)
+def test_from_dict_errors(data, message):
+    with pytest.raises(ValueError, match=message):
+        from_dict(data)
