@@ -125,9 +125,10 @@ Any reader can feed any writer, and a writer also accepts bare `Text`s and
   An input column whose name clashes with the annotation columns, as when annotated
   output is annotated again, is written as `input_<name>`. The reader refuses a header
   that repeats a column name, and a row with more (non-blank) cells than the header,
-  rather than lose cells. The writer holds everything it is given in memory until the
-  end, since the header has to list every column first
-  ([#30](https://github.com/RENCI-NER/renci-ner/issues/30) is about streaming).
+  rather than lose cells. The writer writes each record as it arrives, so a large file
+  isn't held in memory. Its header comes from the first record, so inputs with
+  different columns (CSVs with different headers, or a TXT and a CSV) can't share one
+  output ([#30](https://github.com/RENCI-NER/renci-ner/issues/30)).
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
