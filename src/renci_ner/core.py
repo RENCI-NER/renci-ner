@@ -309,6 +309,9 @@ class Annotator:
         if isinstance(text, AnnotatedText):
             # replace() makes a copy, so this never modifies a cached result.
             return replace(self.annotate(text.text, props), location=text.location)
+        if not isinstance(text, str):
+            # Such as a renci_ner.formats.Row, which is passed through, not annotated.
+            raise TypeError(f"Can only annotate a str or AnnotatedText, not {text!r}")
         props = dict(props or {})
         skip_cache = props.pop("skip_cache", False)
         if skip_cache or not self.cache_size:

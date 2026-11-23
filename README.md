@@ -107,12 +107,39 @@ with open_text("out.jsonl.gz", "w") as out:
 * `.jsonl`: one `AnnotatedText.to_dict()` per line. Reading takes only `text` and
   `location` from each line, so annotated output can be read back as input; its
   annotations are not read back.
+* `.csv`, `.tsv`: one text per non-empty cell, in every column or only some
+  (`reader_for_file("in.csv", columns_include=["description"])`, or
+  `columns_exclude`). Before each row's texts, the reader yields a `Row` holding every
+  cell of that row, so the writer can put back the columns and rows that weren't
+  annotated. A `Row` isn't a text: annotate only the `AnnotatedText`s and pass the rest
+  on to the writer, which the TXT and JSONL writers then skip:
+
+  ```python
+  from renci_ner.core import AnnotatedText
+
+  items = reader_for_file("in.csv", columns_exclude=["id"]).read()
+  annotated = (
+      pipeline.annotate(t) if isinstance(t, AnnotatedText) else t for t in items
+  )
+  with open_text("out.csv", "w", newline="") as out:
+      writer_for_format("csv").write(annotated, out)
+  ```
+
+  The output has every input row and column, then `annotation_row` (the input's data
+  row number) and one output row per annotation; a cell or row with nothing annotated
+  still gets one row. An input column whose name clashes with the annotation columns,
+  as when annotated output is annotated again, is written as `input_<name>`. The reader
+  refuses a header that repeats a column name, and a row with more (non-blank) cells
+  than the header, rather than lose cells. The writer holds everything it is given in
+  memory until the end, since the header has to list every column first
+  ([#30](https://github.com/RENCI-NER/renci-ner/issues/30) is about streaming).
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
 ignored. Each `AnnotatedText` a reader yields has a `location` of
-`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns
-and rows count every line, blank or not. The exception is a JSONL line that already
+`[filename, "row=N", column]`, where `column` is `"text"` for formats without columns.
+Rows count every line of a TXT or JSONL file, blank or not, and every data row of a CSV
+or TSV file, not counting the header. The exception is a JSONL line that already
 has a `location`, such as annotated output read back in: it keeps that one, so it
 still points at the original input.
 
