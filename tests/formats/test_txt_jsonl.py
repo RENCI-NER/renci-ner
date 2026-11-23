@@ -161,3 +161,18 @@ def test_unknown_formats():
 def test_writer_cannot_read():
     with pytest.raises(ValueError, match="not given a file"):
         list(writer_for_format("txt").read())
+
+
+def test_jsonl_record_without_locations(tmp_path):
+    # A hand-written record line with no locations gets them from its row of the file.
+    path = tmp_path / "in.jsonl"
+    line = {
+        "@type": "renci_ner:Record",
+        "cells": {"id": "7", "name": "brain"},
+        "texts": {"name": {"text": "brain"}},
+    }
+    path.write_text(json.dumps(line) + "\n")
+    (record,) = reader_for_file(str(path)).read()
+    assert record.location == [str(path), "row=1"]
+    assert record.cells == {"id": "7", "name": "brain"}
+    assert record.texts == {"name": Text("brain", [str(path), "row=1", "name"])}
