@@ -3,17 +3,18 @@
 import json
 from collections.abc import Iterable, Iterator
 
-from renci_ner.core import AnnotatedText
+from renci_ner.core import AnnotatedText, Text
 from renci_ner.formats.base import Format, Row
 
 
 class JsonlFile(Format):
     """
     One AnnotatedText.to_dict() per line. Reading takes only `text` and `location`
-    from each line (annotations are not read back yet), so it can be used as input.
+    from each line, as a Text (annotations are not read back yet), so it can be used
+    as input.
     """
 
-    def read(self) -> Iterator[AnnotatedText]:
+    def read(self) -> Iterator[Text]:
         with self._open() as f:
             for row, line in enumerate(f, start=1):
                 if not line.strip():
@@ -28,7 +29,7 @@ class JsonlFile(Format):
                         f'Expected a JSON object with a string "text" at {where}, '
                         f"got: {line.strip()[:100]}"
                     )
-                yield AnnotatedText(
+                yield Text(
                     data["text"],
                     location=data.get("location")
                     or [self.filename, f"row={row}", "text"],
@@ -36,5 +37,5 @@ class JsonlFile(Format):
 
     def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
         for text in texts:
-            if isinstance(text, AnnotatedText):
+            if isinstance(text, Text | AnnotatedText):
                 file.write(json.dumps(text.to_dict()) + "\n")

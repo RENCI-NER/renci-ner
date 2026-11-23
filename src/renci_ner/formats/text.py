@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable, Iterator
 
-from renci_ner.core import AnnotatedText
+from renci_ner.core import AnnotatedText, Text
 from renci_ner.formats.base import Format, Row
 
 
@@ -12,19 +12,17 @@ class TextFile(Format):
     but row numbers still count them. Writing emits only the text, one per line.
     """
 
-    def read(self) -> Iterator[AnnotatedText]:
+    def read(self) -> Iterator[Text]:
         with self._open() as f:
             for row, line in enumerate(f, start=1):
                 text = line.rstrip("\n")
                 if not text.strip():
                     continue
-                yield AnnotatedText(
-                    text, location=[self.filename, f"row={row}", "text"]
-                )
+                yield Text(text, location=[self.filename, f"row={row}", "text"])
 
     def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
         for text in texts:
-            if not isinstance(text, AnnotatedText):
+            if not isinstance(text, Text | AnnotatedText):
                 continue
             # A line break would split the text over several lines, so it would read
             # back as several texts and shift every later row. Refuse rather than

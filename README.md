@@ -97,7 +97,7 @@ from renci_ner.formats import open_text, reader_for_file, writer_for_format
 
 pipeline = Pipeline(BioMegatron(), (NameRes(), {"limit": 1}), NodeNorm())
 with open_text("out.jsonl.gz", "w") as out:
-    # annotate() accepts an AnnotatedText and keeps its location.
+    # A reader yields Texts; annotate() keeps each one's location.
     texts = (pipeline.annotate(t) for t in reader_for_file("in.txt.gz").read())
     writer_for_format("jsonl").write(texts, out)
 ```
@@ -111,15 +111,15 @@ with open_text("out.jsonl.gz", "w") as out:
   (`reader_for_file("in.csv", columns_include=["description"])`, or
   `columns_exclude`). Before each row's texts, the reader yields a `Row` holding every
   cell of that row, so the writer can put back the columns and rows that weren't
-  annotated. A `Row` isn't a text: annotate only the `AnnotatedText`s and pass the rest
+  annotated. A `Row` isn't a text: annotate only the `Text`s and pass the rest
   on to the writer, which the TXT and JSONL writers then skip:
 
   ```python
-  from renci_ner.core import AnnotatedText
+  from renci_ner.core import Text
 
   items = reader_for_file("in.csv", columns_exclude=["id"]).read()
   annotated = (
-      pipeline.annotate(t) if isinstance(t, AnnotatedText) else t for t in items
+      pipeline.annotate(t) if isinstance(t, Text) else t for t in items
   )
   with open_text("out.csv", "w", newline="") as out:
       writer_for_format("csv").write(annotated, out)
@@ -136,7 +136,7 @@ with open_text("out.jsonl.gz", "w") as out:
 
 A reader picks the format by suffix, and a trailing `.gz` is read through gzip
 (`open_text()` does the same for writing). Files are UTF-8, and a byte-order mark is
-ignored. Each `AnnotatedText` a reader yields has a `location` of
+ignored. Each `Text` a reader yields has a `location` of
 `[filename, "row=N", column]`, where `column` is `"text"` for formats without columns.
 Rows count every line of a TXT or JSONL file, blank or not, and every data row of a CSV
 or TSV file, not counting the header. The exception is a JSONL line that already

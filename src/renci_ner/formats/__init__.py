@@ -1,12 +1,12 @@
 """
 Readers and writers for AnnotatedText in plain files.
 
-A reader yields one AnnotatedText per unit of text (a line, a cell) with a `location`
+A reader yields one Text per unit of text (a line, a cell) with a `location`
 of `[filename, "row=N", column]`, where column is "text" for formats without columns.
 (A JSONL line that already has a location keeps it, so annotated output read back in
 still points at the original input.) A CSV/TSV reader also yields a Row before each
 row's texts, holding every cell of that row, so the writer can put the whole row back;
-annotate only the AnnotatedTexts and pass Rows through. A writer takes these items and
+annotate only the Texts and pass Rows through. A writer takes these items and
 a file handle; the TXT and JSONL writers skip Rows. Files ending in .gz are gzipped.
 """
 

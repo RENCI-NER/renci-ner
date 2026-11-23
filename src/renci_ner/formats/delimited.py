@@ -3,7 +3,7 @@
 import csv
 from collections.abc import Iterable, Iterator
 
-from renci_ner.core import AnnotatedText
+from renci_ner.core import AnnotatedText, Text
 from renci_ner.formats.base import Format, Row, format_suffix
 
 ANNOTATION_COLUMNS = [
@@ -22,7 +22,7 @@ ANNOTATION_COLUMNS = [
 class DelimitedFile(Format):
     """
     CSV (default) or TSV (by .tsv suffix or dialect="excel-tab"). Reading yields, for
-    each data row, a Row with all its cells, then one AnnotatedText per non-empty cell
+    each data row, a Row with all its cells, then one Text per non-empty cell
     in the chosen columns, with location=[filename, "row=N", column].
 
     Reading refuses a header that repeats a name, and a row with non-blank cells beyond
@@ -63,7 +63,7 @@ class DelimitedFile(Format):
         self.columns_include = list(dict.fromkeys(columns_include or []))
         self.columns_exclude = set(columns_exclude or [])
 
-    def read(self) -> Iterator[AnnotatedText | Row]:
+    def read(self) -> Iterator[Text | Row]:
         with self._open(newline="") as f:
             reader = csv.DictReader(f, dialect=self.dialect)
             fieldnames = reader.fieldnames or []
@@ -108,12 +108,10 @@ class DelimitedFile(Format):
                 for column in columns:
                     text = cells.get(column) or ""
                     if text.strip():
-                        yield AnnotatedText(
-                            text, location=[self.filename, f"row={row}", column]
-                        )
+                        yield Text(text, location=[self.filename, f"row={row}", column])
 
     @staticmethod
-    def _row_and_column(text: AnnotatedText) -> tuple:
+    def _row_and_column(text: Text | AnnotatedText) -> tuple:
         """
         Where a text goes: a (row key, column) pair. Only a location shaped like a
         reader's, [filename, "row=N", column] in strings, joins the other texts of
@@ -145,7 +143,7 @@ class DelimitedFile(Format):
                 texts_by_row.setdefault(key, [])
         rows_from_input = set(cells)
         for item in items:
-            if isinstance(item, AnnotatedText):
+            if isinstance(item, Text | AnnotatedText):
                 key, column = self._row_and_column(item)
                 texts_by_row.setdefault(key, []).append((column, item))
                 if key not in rows_from_input:
@@ -172,9 +170,12 @@ class DelimitedFile(Format):
                 text_cells = row_cells | {
                     "annotation_column": names.get(column, column)
                 }
-                if not text.annotations:
+                # A Text has no annotations yet, so it gets one row like an AnnotatedText
+                # with none.
+                annotations = getattr(text, "annotations", [])
+                if not annotations:
                     writer.writerow(text_cells)
-                for ann in text.annotations:
+                for ann in annotations:
                     writer.writerow(
                         text_cells
                         | {

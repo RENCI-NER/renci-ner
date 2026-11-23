@@ -158,6 +158,28 @@ class NormalizedAnnotation(Annotation):
         return super().to_dict() | {"biolink_type": self.biolink_type}
 
 
+@dataclass(frozen=True)
+class Text:
+    """
+    A text that has not been annotated yet, with where it came from.
+
+    `Annotator.annotate()` turns a Text into an AnnotatedText with the same `location`.
+    Text and AnnotatedText are deliberately separate classes, neither a subclass of the
+    other, so the type says whether a text has been annotated: annotating an
+    AnnotatedText again goes through reannotate(), which builds on its annotations.
+    """
+
+    text: str
+    location: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "@type": "renci_ner:Text",
+            "text": self.text,
+            "location": self.location,
+        }
+
+
 @dataclass
 class AnnotatedText:
     """
@@ -292,26 +314,31 @@ class Annotator:
             version="0.0.1",
         )
 
-    def annotate(self, text: str | AnnotatedText, props: dict = None) -> AnnotatedText:
+    def annotate(self, text: str | Text, props: dict = None) -> AnnotatedText:
         """
         Annotate a text. Service-specific properties (see supported_properties for descriptions) can be passed in via
         `props`. Results are cached per (text, props); pass `skip_cache: True` to bypass the cache.
 
-        `text` may be an AnnotatedText (such as one from a renci_ner.formats reader): its text is annotated and the
-        result keeps its `location`. Any annotations it already has are ignored; use reannotate() to build on them.
+        `text` may be a Text (such as one from a renci_ner.formats reader): the result keeps its `location`. An
+        AnnotatedText is refused rather than re-annotated from scratch, which would drop its annotations; use its
+        reannotate() to build on them.
 
         The returned AnnotatedText may be shared with later callers, so don't modify it.
 
-        :param text: The text to annotate, as a str or an AnnotatedText.
+        :param text: The text to annotate, as a str or a Text.
         :param props: Properties supported by this annotator to use during the annotation.
         :return AnnotatedText: The annotated text.
         """
-        if isinstance(text, AnnotatedText):
+        if isinstance(text, Text):
             # replace() makes a copy, so this never modifies a cached result.
             return replace(self.annotate(text.text, props), location=text.location)
+        if isinstance(text, AnnotatedText):
+            raise TypeError(
+                "Can't annotate an AnnotatedText, since that would drop its annotations; "
+                "use its reannotate() to build on them, or annotate a Text or str"
+            )
         if not isinstance(text, str):
-            # Such as a renci_ner.formats.Row, which is passed through, not annotated.
-            raise TypeError(f"Can only annotate a str or AnnotatedText, not {text!r}")
+            raise TypeError(f"Can only annotate a str or Text, not {text!r}")
         props = dict(props or {})
         skip_cache = props.pop("skip_cache", False)
         if skip_cache or not self.cache_size:

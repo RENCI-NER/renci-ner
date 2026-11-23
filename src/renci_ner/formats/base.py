@@ -9,7 +9,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from renci_ner.core import AnnotatedText
+from renci_ner.core import AnnotatedText, Text
 
 
 def open_text(filename: str, mode: str = "r", newline: str | None = None):
@@ -45,7 +45,7 @@ class Row:
     """
     One row of a CSV/TSV input, with every cell (excluded and blank ones too), so the
     writer can reproduce the row however few of its cells were annotated. `location` is
-    [filename, "row=N"]: the location of the row's AnnotatedTexts minus their column.
+    [filename, "row=N"]: the location of the row's Texts minus their column.
     A Row is not a text: don't annotate it, just pass it on to the writer.
     """
 
@@ -69,8 +69,8 @@ class Format:
             raise ValueError(f"{type(self).__name__} was not given a file to read")
         return open_text(self.filename, newline=newline)
 
-    def read(self) -> Iterator[AnnotatedText | Row]:
+    def read(self) -> Iterator[Text | Row]:
         raise NotImplementedError
 
-    def write(self, texts: Iterable[AnnotatedText | Row], file) -> None:
+    def write(self, texts: Iterable[Text | AnnotatedText | Row], file) -> None:
         raise NotImplementedError

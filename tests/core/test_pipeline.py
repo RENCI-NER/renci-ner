@@ -10,6 +10,7 @@ from renci_ner.core import (
     MultiAnnotator,
     NormalizedAnnotation,
     Pipeline,
+    Text,
     Transformer,
 )
 
@@ -142,7 +143,7 @@ def test_pipeline_rejects_bad_steps():
         Pipeline(StubNER(), "nodenorm")
 
 
-def test_annotate_keeps_location_of_annotated_text():
+def test_annotate_keeps_location_of_text():
     class Echo(Annotator):
         def _annotate(self, text, props):
             return AnnotatedText(text, [])
@@ -150,12 +151,29 @@ def test_annotate_keeps_location_of_annotated_text():
     linker = StubLinker("L")
     pipeline = Pipeline(Echo(), linker)
     location = ["in.txt", "row=1", "text"]
-    first = pipeline.annotate(AnnotatedText("brain", location=location))
+    first = pipeline.annotate(Text("brain", location=location))
+    assert isinstance(first, AnnotatedText)
     assert first.text == "brain"
     assert first.location == location
 
     # The cached result is shared, so the location must not leak into a later call.
     assert pipeline.annotate("brain").location == []
-    other = pipeline.annotate(AnnotatedText("brain", location=["x", "row=2", "text"]))
+    other = pipeline.annotate(Text("brain", location=["x", "row=2", "text"]))
     assert other.location == ["x", "row=2", "text"]
     assert first.location == location
+
+
+def test_annotate_refuses_annotated_text():
+    # Annotating an AnnotatedText would silently drop its annotations.
+    with pytest.raises(TypeError, match="reannotate"):
+        Annotator().annotate(AnnotatedText("brain"))
+    with pytest.raises(TypeError, match="str or Text"):
+        Annotator().annotate(["brain"])
+
+
+def test_text_to_dict():
+    assert Text("brain", ["in.txt", "row=1", "text"]).to_dict() == {
+        "@type": "renci_ner:Text",
+        "text": "brain",
+        "location": ["in.txt", "row=1", "text"],
+    }

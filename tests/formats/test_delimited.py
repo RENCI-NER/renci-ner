@@ -4,7 +4,13 @@ import io
 
 import pytest
 
-from renci_ner.core import AnnotatedText, Annotation, AnnotationProvenance, Annotator
+from renci_ner.core import (
+    AnnotatedText,
+    Annotation,
+    AnnotationProvenance,
+    Annotator,
+    Text,
+)
 from renci_ner.formats import (
     DelimitedFile,
     Row,
@@ -19,8 +25,8 @@ CSV = "id,name,description\n1,Brain,The brain is an organ.\n2,,\n3,Heart,\n"
 
 
 def texts_of(items):
-    """The AnnotatedTexts among a reader's items, leaving out its Rows."""
-    return [t for t in items if isinstance(t, AnnotatedText)]
+    """The Texts among a reader's items, leaving out its Rows."""
+    return [t for t in items if isinstance(t, Text)]
 
 
 def test_read_cells_with_locations(tmp_path):
@@ -54,7 +60,6 @@ def test_write_rows_per_annotation(tmp_path):
     path = tmp_path / "in.csv"
     path.write_text(CSV)
     items = list(reader_for_file(str(path), columns_exclude=["id"]).read())
-    texts = texts_of(items)
 
     # Annotate "Brain" with two candidates, the description with one, and "Heart" with none.
     def link(text, start, curie):
@@ -78,11 +83,20 @@ def test_write_rows_per_annotation(tmp_path):
             based_on=[ner],
         )
 
-    texts[0].annotations = [
-        link("Brain", 0, "UBERON:0000955"),
-        link("Brain", 0, "UMLS:C0006104"),
+    annotations = {
+        "Brain": [
+            link("Brain", 0, "UBERON:0000955"),
+            link("Brain", 0, "UMLS:C0006104"),
+        ],
+        "The brain is an organ.": [link("The brain is an organ.", 4, "UBERON:0000955")],
+    }
+    # What an annotator does: each Text becomes an AnnotatedText at the same location.
+    items = [
+        AnnotatedText(i.text, annotations.get(i.text, []), location=i.location)
+        if isinstance(i, Text)
+        else i
+        for i in items
     ]
-    texts[1].annotations = [link("The brain is an organ.", 4, "UBERON:0000955")]
 
     out = io.StringIO()
     writer_for_format("csv").write(items, out)
