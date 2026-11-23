@@ -37,10 +37,12 @@ class DelimitedFile(Format):
     input column named like one of ANNOTATION_COLUMNS (as when this output is annotated
     again) is written as "input_<name>".
 
-    The writer holds every record in memory until the end, because the header must
-    list every column before the first row is written, and records from several inputs
-    (a TXT and a CSV, or CSVs with different headers) may add columns at any point. See
-    #30 for ways to stream large inputs.
+    The writer streams: it writes each record as soon as it arrives, so only one is held
+    at a time and a run that fails partway leaves the records before it written. The
+    header is written before the first row, so it comes from the first record's cells,
+    and a later record with a cell the first one lacks raises ValueError: write records
+    with different columns (CSVs with different headers, or a TXT and a CSV) to separate
+    outputs. #30 weighs this against other approaches.
     """
 
     def __init__(
@@ -112,49 +114,61 @@ class DelimitedFile(Format):
                 )
 
     def write(self, records: Iterable[Record | Text | AnnotatedText], file) -> None:
-        # Held in full so the header can list every column; see the class docstring.
-        records = list(as_records(records))
-        columns: list[str] = []
-        for record in records:
-            columns += [c for c in record.cells if c not in columns]
-
-        names = self._output_names(columns)
+        records = as_records(records)
+        first = next(records, None)
+        # The header must come before the first row, so it is the first record's cells.
+        names = self._output_names(list(first.cells) if first else [])
         writer = csv.DictWriter(
             file,
             fieldnames=list(names.values()) + ANNOTATION_COLUMNS,
             dialect=self.dialect,
         )
         writer.writeheader()
+        if first is None:
+            return
+        self._write_record(writer, names, first)
         for record in records:
-            row_cells = {names[c]: v for c, v in record.cells.items()} | {
-                "annotation_row": self._row_number(record.location)
-            }
-            if not record.texts:
-                writer.writerow(row_cells)
-            for column, text in record.texts.items():
-                text_cells = row_cells | {
-                    "annotation_column": names.get(column, column)
-                }
-                # A Text has no annotations yet, so it gets one row like an
-                # AnnotatedText with none.
-                annotations = getattr(text, "annotations", [])
-                if not annotations:
-                    writer.writerow(text_cells)
-                for ann in annotations:
-                    writer.writerow(
-                        text_cells
-                        | {
-                            "annotation_text": ann.text,
-                            "annotation_label": ann.label,
-                            "annotation_id": ann.id,
-                            "annotation_type": ann.type,
-                            "annotation_start": ann.start,
-                            "annotation_end": ann.end,
-                            "annotation_prov": " > ".join(
-                                f"{p.name} {p.version}" for p in ann.provenances
-                            ),
-                        }
-                    )
+            new = [c for c in record.cells if c not in names]
+            if new:
+                raise ValueError(
+                    f"The record at {record.location} has column(s) {new} that the "
+                    f"first record ({first.location}) doesn't, and the header is "
+                    f"already written; write inputs with different columns to "
+                    f"separate outputs"
+                )
+            self._write_record(writer, names, record)
+
+    def _write_record(
+        self, writer: csv.DictWriter, names: dict[str, str], record: Record
+    ) -> None:
+        """Write one record: its cells and `annotation_row`, then a row per annotation."""
+        row_cells = {names[c]: v for c, v in record.cells.items()} | {
+            "annotation_row": self._row_number(record.location)
+        }
+        if not record.texts:
+            writer.writerow(row_cells)
+        for column, text in record.texts.items():
+            text_cells = row_cells | {"annotation_column": names.get(column, column)}
+            # A Text has no annotations yet, so it gets one row like an
+            # AnnotatedText with none.
+            annotations = getattr(text, "annotations", [])
+            if not annotations:
+                writer.writerow(text_cells)
+            for ann in annotations:
+                writer.writerow(
+                    text_cells
+                    | {
+                        "annotation_text": ann.text,
+                        "annotation_label": ann.label,
+                        "annotation_id": ann.id,
+                        "annotation_type": ann.type,
+                        "annotation_start": ann.start,
+                        "annotation_end": ann.end,
+                        "annotation_prov": " > ".join(
+                            f"{p.name} {p.version}" for p in ann.provenances
+                        ),
+                    }
+                )
 
     @staticmethod
     def _output_names(columns: list[str]) -> dict[str, str]:

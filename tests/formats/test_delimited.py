@@ -322,3 +322,34 @@ def test_annotation_column_names_the_renamed_column():
 def test_writers_refuse_other_items():
     with pytest.raises(TypeError, match="Records"):
         writer_for_format("csv").write(["brain"], io.StringIO())
+
+
+def test_records_are_written_as_they_arrive(tmp_path):
+    path = tmp_path / "in.csv"
+    path.write_text(CSV)
+
+    def records_then_failure():
+        for record in reader_for_file(str(path), columns_exclude=["id"]).read():
+            if record.location[1] == "row=3":
+                raise RuntimeError("annotator went away")
+            yield record.annotate(Canned())
+
+    out = io.StringIO()
+    with pytest.raises(RuntimeError):
+        writer_for_format("csv").write(records_then_failure(), out)
+    # Rows 1 and 2 were written before the failure.
+    assert [r["annotation_row"] for r in rows_of(out.getvalue())] == [
+        "1",
+        "1",
+        "1",
+        "2",
+    ]
+
+
+def test_later_record_with_new_columns_is_an_error():
+    records = [
+        Record(["a.csv", "row=1"], {"text": "brain"}, {}),
+        Record(["b.csv", "row=1"], {"note": "heart"}, {}),
+    ]
+    with pytest.raises(ValueError, match="note"):
+        writer_for_format("csv").write(records, io.StringIO())
