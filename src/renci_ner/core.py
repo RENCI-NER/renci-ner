@@ -293,7 +293,9 @@ class Record(Generic[T]):
     every field of the record, including ones that aren't annotated (an `id` column,
     say), so a writer can reproduce all of it. `texts` maps each field to annotate onto
     its Text or AnnotatedText, in field order; each text's own location is the record's
-    location plus its field, so it still makes sense on its own.
+    location plus its field, so it still makes sense on its own. Texts carry a copy of
+    their location rather than a reference back to the Record, which would make the two
+    refer to each other; see #34 for why.
     """
 
     location: list[str]

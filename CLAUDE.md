@@ -79,6 +79,7 @@ One module per format (`text.py`, `jsonl.py`, `delimited.py`), with what they sh
 - Services fetch their version from `/openapi.json` at the service URL
 - Caching: `Annotator.annotate()` caches per (text, props) in a per-instance LRU and services implement `_annotate(text, props)`; NodeNorm caches per (identifier, conflation flags); `skip_cache: True` bypasses. Cached results are shared, so never modify an AnnotatedText a service returned
 - Tests use `pytest.skip()` when a remote service CI can't reach (BioMegatron, Bagel) is unavailable. The SAPBERT test fails instead on purpose, so CI catches `sap-qdrant` being down; don't make it skip. During a known outage, mark it `xfail` for request errors only: `xfail_strict = true` in `pyproject.toml` makes it fail again once the service is back, which is the cue to remove the marker
+- CI's live tests sometimes time out connecting to RENCI services (NameRes, NodeNorm, `med-nemo`), usually on one Python version while the other passes; rerun the failed job (`gh run rerun <id> --failed`) before investigating
 - Python 3.11+ required (uses `typing.Self`)
 
 ## Linting
