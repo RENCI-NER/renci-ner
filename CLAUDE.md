@@ -26,6 +26,9 @@ uv run ruff format
 
 # Build
 uv build
+
+# Annotate a file (see src/renci_ner/cli.py)
+uv run renci-ner --method biomegatron-sapbert -f jsonl input.txt
 ```
 
 ## Architecture

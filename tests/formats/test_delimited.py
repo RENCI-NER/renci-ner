@@ -322,3 +322,12 @@ def test_annotation_column_names_the_renamed_column():
 def test_writers_refuse_other_items():
     with pytest.raises(TypeError, match="Records"):
         writer_for_format("csv").write(["brain"], io.StringIO())
+
+
+def test_header(tmp_path):
+    path = tmp_path / "in.tsv"
+    path.write_text("id\ttext\n1\tbrain\n")
+    assert reader_for_file(str(path)).header() == ["id", "text"]
+    empty = tmp_path / "empty.csv"
+    empty.write_text("")
+    assert reader_for_file(str(empty)).header() == []
